@@ -461,194 +461,102 @@ function updateWaterUI() {
 }
 
 /* =========================================
-   7. ĂN UỐNG & BỘ NÃO GEMINI AI THỰC THỤ (NO CODE CỨNG)
+   7. ĂN UỐNG & BỘ NÃO GEMINI AI (ĐÃ TỐI ƯU)
    ========================================= */
 const DEFAULT_GEMINI_API_KEY = "AIzaSyBuceM7Qc0Jjhmm3orIo5p2G9ubM886FkU";
 
 async function fetchNutritionFromGemini(foodQuery) {
     let lowerName = foodQuery.toLowerCase().trim();
 
-    // 1. Kiểm tra trong kho lưu trữ dữ liệu cá nhân tự định nghĩa trước
+    // 1. Kiểm tra cache cục bộ trước để tiết kiệm API
     if (customFoodDatabase[lowerName]) {
         return customFoodDatabase[lowerName];
     }
 
-    // Xác định API Key đang được chọn sử dụng
     const activeApiKey = storedApiKey || DEFAULT_GEMINI_API_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeApiKey}`;
 
-    if (activeApiKey) {
-        // Chuyển sang sử dụng mô hình gemini-1.5-flash để cải thiện tốc độ phản hồi
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeApiKey}`;
+    // Prompt được tinh chỉnh để ép AI trả về JSON sạch 100%
+    const promptText = `Bạn là một máy quét dinh dưỡng. Hãy phân tích: "${foodQuery}". 
+Chỉ trả về duy nhất 1 chuỗi JSON theo cấu trúc này, không thêm văn bản gì khác:
+{"cal": số_calo, "p": gram_dam, "c": gram_carb, "f": gram_fat, "fb": gram_xo}
+Ví dụ: "1 bát phở" -> {"cal": 450, "p": 20, "c": 50, "f": 15, "fb": 2}`;
 
-        // Chuyển prompt yêu cầu phản hồi dạng cấu trúc JSON để bóc tách thông tin tốt hơn
-        const promptText = `Bạn là một chuyên gia dinh dưỡng giàu kinh nghiệm. Hãy phân tích cấu trúc dinh dưỡng của món ăn sau đây: "${foodQuery}".
-Hãy phản hồi dưới dạng cấu trúc đối tượng JSON thuần tuý, không định dạng mã markdown, không thêm ký tự giải thích.
-Cấu trúc JSON yêu cầu chính xác như sau:
-{
-  "calories": [Số nguyên lượng calo],
-  "protein": [Số nguyên lượng đạm tính bằng gram],
-  "carbs": [Số nguyên lượng carbohydrate tính bằng gram],
-  "fat": [Số nguyên lượng chất béo tính bằng gram],
-  "fiber": [Số nguyên hoặc số thập phân lượng xơ tính bằng gram]
-}
-Ví dụ với món "1 hộp sữa chua có đường":
-{"calories": 95, "protein": 3, "carbs": 14, "fat": 3, "fiber": 0}`;
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: promptText }] }]
+            })
+        });
 
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: promptText }] }]
-                })
-            });
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
-            if (response.ok) {
-                const data = await response.json();
-                let rawText = data.candidates[0].content.parts[0].text.trim();
-                
-                // Trích xuất chuỗi JSON từ phản hồi bằng biểu thức chính quy phòng trường hợp mô hình bọc trong thẻ ```json
-                const jsonRegex = /\{[\s\S]*?\}/;
-                const match = rawText.match(jsonRegex);
-                
-                if (match) {
-                    const parsedData = JSON.parse(match[0]);
-                    return {
-                        cal: parseInt(parsedData.calories) || 0,
-                        p: parseInt(parsedData.protein) || 0,
-                        c: parseInt(parsedData.carbs) || 0,
-                        f: parseInt(parsedData.fat) || 0,
-                        fb: parseFloat(parsedData.fiber) || 0
-                    };
-                }
-            } else {
-                console.error("Lỗi HTTP phản hồi từ API Gemini:", response.status);
-            }
-        } catch (error) {
-            console.error("Lỗi kết nối hoặc xử lý dữ liệu từ Gemini AI:", error);
-        }
+        const data = await response.json();
+        let rawText = data.candidates[0].content.parts[0].text.trim();
+        
+        // Xử lý loại bỏ markdown nếu AI lỡ tay thêm vào
+        rawText = rawText.replace(/```json|```/g, "").trim();
+        
+        const parsed = JSON.parse(rawText);
+        
+        // Trả về dữ liệu chuẩn (đảm bảo là số)
+        return {
+            cal: Math.round(Number(parsed.cal)) || 0,
+            p: Math.round(Number(parsed.p)) || 0,
+            c: Math.round(Number(parsed.c)) || 0,
+            f: Math.round(Number(parsed.f)) || 0,
+            fb: Math.round(Number(parsed.fb)) || 0
+        };
+
+    } catch (error) {
+        console.error("Lỗi Gemini:", error);
+        showToast("⚠️ Không thể phân tích món này, đang dùng dữ liệu mặc định.");
+        return { cal: 150, p: 5, c: 20, f: 5, fb: 1 }; // Giá trị an toàn khi lỗi
     }
-
-    // Giá trị mặc định khi kết nối thất bại hoặc không thể phân tích dữ liệu
-    return { cal: 100, p: 2, c: 10, f: 2, fb: 0 };
 }
 
 window.addFood = async function() {
     const nameInput = document.getElementById('food-input');
-    const name = nameInput.value;
-    if (!name.trim()) { showToast("Nhập tên món ăn nha!"); return; }
+    const btn = document.querySelector('button[onclick="addFood()"]');
+    const name = nameInput.value.trim();
 
-    showToast("🧠 Gemini AI đang phân tích món ăn...");
+    if (!name) { showToast("Nhập tên món ăn nha!"); return; }
 
-    if (!foodLogs[selectedDate]) foodLogs[selectedDate] = [];
-    let nut = await fetchNutritionFromGemini(name);
+    // Hiệu ứng Loading
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Đang tính...";
+    showToast("🧠 Gemini AI đang phân tích dinh dưỡng...");
 
-    let newFoodItem = { 
-        id: Date.now(), 
-        name: name, 
-        cal: nut.cal, 
-        p: nut.p, 
-        c: nut.c, 
-        f: nut.f, 
-        fb: nut.fb 
-    };
+    try {
+        const nut = await fetchNutritionFromGemini(name);
+        
+        if (!foodLogs[selectedDate]) foodLogs[selectedDate] = [];
+        
+        const newFoodItem = { 
+            id: Date.now(), 
+            name: name, 
+            ...nut 
+        };
 
-    foodLogs[selectedDate].unshift(newFoodItem);
-    localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
-    nameInput.value = "";
-    updateFoodUI();
-    renderDateBars();
-    showToast(`Gemini AI: ${name} (~${nut.cal} kcal)!`);
-};
-
-window.editFoodCalories = function(id, foodName) {
-    let currentLogs = foodLogs[selectedDate] || [];
-    let item = currentLogs.find(l => l.id === id);
-    if (!item) return;
-
-    let newCalStr = prompt(`Nhập lại số Calo chuẩn cho món "${foodName}":`, item.cal);
-    if (newCalStr === null) return;
-    let newCal = parseInt(newCalStr);
-
-    if (isNaN(newCal) || newCal < 0) {
-        showToast("Số calo không hợp lệ!");
-        return;
-    }
-
-    item.cal = newCal;
-    item.p = Math.round(newCal * 0.15 / 4);
-    item.c = Math.round(newCal * 0.5 / 4);
-    item.f = Math.round(newCal * 0.35 / 9);
-
-    localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
-
-    customFoodDatabase[foodName.toLowerCase().trim()] = { cal: item.cal, p: item.p, c: item.c, f: item.f, fb: item.fb };
-    localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
-
-    updateFoodUI();
-    showToast("Đã lưu số Calo mới vào bộ nhớ!");
-};
-
-window.deleteFood = function(id) {
-    if (foodLogs[selectedDate]) {
-        foodLogs[selectedDate] = foodLogs[selectedDate].filter(log => log.id !== id);
+        foodLogs[selectedDate].unshift(newFoodItem);
         localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
+        
+        nameInput.value = "";
         updateFoodUI();
         renderDateBars();
-        showToast("Đã xóa món!");
+        showToast(`Đã thêm: ${name} (${nut.cal} kcal)`);
+    } catch (err) {
+        showToast("Lỗi hệ thống, vui lòng thử lại!");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     }
 };
 
-function updateFoodUI() {
-    const targetEl = document.getElementById('target-calo-display');
-    if (!targetEl) return;
-    const target = parseInt(targetEl.innerText) || 2000;
-    const bmr = parseInt(document.getElementById('stat-bmr').innerText) || 1200;
-    const tdee = parseInt(document.getElementById('stat-tdee').innerText) || 2000;
-    
-    const logs = foodLogs[selectedDate] || [];
-    let tCal=0, tP=0, tC=0, tF=0, tFb=0;
-    
-    logs.forEach(log => {
-        tCal += log.cal; tP += log.p; tC += log.c; tF += log.f; tFb += log.fb;
-    });
-
-    document.getElementById('food-current').innerText = tCal;
-    document.getElementById('macro-pro').innerText = tP;
-    document.getElementById('macro-carb').innerText = tC;
-    document.getElementById('macro-fat').innerText = tF;
-    document.getElementById('macro-fiber').innerText = Math.round(tFb);
-
-    document.getElementById('food-range-info').innerText = `Tối thiểu: ${bmr} kcal | Tối đa (TDEE): ${tdee} kcal`;
-
-    let pct = Math.min((tCal / target) * 100, 100);
-    let circleColor = tCal > tdee ? "var(--danger)" : "var(--primary)";
-    document.getElementById('food-circle').style.background = `conic-gradient(${circleColor} ${pct}%, var(--border) 0%)`;
-
-    const streakMsg = document.getElementById('food-streak-msg');
-    if (tCal > 0 && tCal <= tdee) {
-        streakMsg.innerHTML = "🔥 Streak Kiểm Soát Calo Tốt!";
-    } else if (tCal > tdee) {
-        streakMsg.innerHTML = `<span style="color:var(--danger)">⚠️ Đã vượt mức Calo tối đa!</span>`;
-    } else {
-        streakMsg.innerText = "";
-    }
-
-    let advice = "";
-    if (tP < 40) advice += "Nên thêm đạm. ";
-    if (tFb < 12) advice += "Thêm chất xơ.";
-    document.getElementById('food-advice').innerText = advice || "Dinh dưỡng khá cân bằng!";
-
-    document.getElementById('food-list').innerHTML = logs.map(log => `
-        <li class="history-item" style="cursor: pointer;" title="Bấm vào để sửa số Calo">
-            <div class="history-item-info" onclick="editFoodCalories(${log.id}, '${log.name}')">
-                <strong>${log.name} (${log.cal} kcal) ✏️</strong>
-                <span style="font-size:12px; color:var(--text-sub)">Đ: ${log.p}g | B: ${log.c}g | Béo: ${log.f}g | Xơ: ${log.fb}g</span>
-            </div>
-            <button type="button" class="btn-delete" onclick="deleteFood(${log.id})">Xóa</button>
-        </li>
-    `).join('');
-}
+// Giữ lại các hàm editFoodCalories, deleteFood và updateFoodUI của bạn bên dưới...
 /* =========================================
    8. THỂ THAO
    ========================================= */
