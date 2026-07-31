@@ -1,5 +1,5 @@
 /* =========================================
-   0. TOAST NOTIFICATION (THÔNG BÁO POPUP)
+   0. TOAST NOTIFICATION
    ========================================= */
 function showToast(message) {
     const container = document.getElementById('toast-container');
@@ -48,37 +48,52 @@ auth.onAuthStateChanged(user => {
                 <img src="${user.photoURL}" style="width: 32px; height: 32px; border-radius: 50%;">
                 <span style="font-weight: 700; font-size: 14px;">${user.displayName}</span>
             </div>
-            <button id="btn-logout" class="btn-secondary" style="width: 100%; padding: 6px;">Đăng xuất</button>
+            <button type="button" id="btn-logout" class="btn-secondary" style="width: 100%; padding: 6px;">Đăng xuất</button>
         `;
     } else {
-        authStatusEl.innerHTML = `<button id="btn-login" class="btn-secondary" style="width: 100%;">Đăng nhập</button>`;
+        authStatusEl.innerHTML = `<button type="button" id="btn-login" class="btn-secondary" style="width: 100%;">Đăng nhập</button>`;
     }
     setupAuthListeners();
 });
 
 /* =========================================
-   2. HỒ SƠ CÁ NHÂN & TÍNH TOÁN CHỈ SỐ
+   2. QUẢN LÝ HỒ SƠ & MODAL (FIXED BUG)
    ========================================= */
 let userProfile = JSON.parse(localStorage.getItem('helnai_user_profile')) || null;
 const userModal = document.getElementById('user-modal');
+const healthForm = document.getElementById('health-form');
 
-document.getElementById('btn-settings').addEventListener('click', () => {
+function openSettingsModal() {
     if (userProfile) {
-        ['weight','height','age','gender','activity','goal'].forEach(id => {
-            document.getElementById(id).value = userProfile[id];
-        });
+        document.getElementById('weight').value = userProfile.weight || '';
+        document.getElementById('height').value = userProfile.height || '';
+        document.getElementById('age').value = userProfile.age || '';
+        document.getElementById('gender').value = userProfile.gender || 'female';
+        document.getElementById('activity').value = userProfile.activity || '1.2';
+        document.getElementById('goal').value = userProfile.goal || 'maintain';
     }
     userModal.classList.add('active');
-});
+}
 
+const btnSettings = document.getElementById('btn-settings');
+if (btnSettings) {
+    btnSettings.addEventListener('click', (e) => {
+        e.preventDefault();
+        openSettingsModal();
+    });
+}
+
+// Kiểm tra hiển thị Modal khi khởi chạy
 if (!userProfile) {
     userModal.classList.add('active');
 } else {
+    userModal.classList.remove('active');
     calculateAndDisplayStats();
 }
 
-document.getElementById('health-form').addEventListener('submit', (e) => {
+healthForm.addEventListener('submit', (e) => {
     e.preventDefault();
+    
     userProfile = {
         weight: parseFloat(document.getElementById('weight').value),
         height: parseFloat(document.getElementById('height').value),
@@ -87,35 +102,34 @@ document.getElementById('health-form').addEventListener('submit', (e) => {
         activity: parseFloat(document.getElementById('activity').value),
         goal: document.getElementById('goal').value
     };
+    
     localStorage.setItem('helnai_user_profile', JSON.stringify(userProfile));
+    
+    // Ẩn modal ngay lập tức
     userModal.classList.remove('active');
+    
     calculateAndDisplayStats();
-    showToast("Đã lưu hồ sơ sức khỏe!");
+    showToast("Đã lưu hồ sơ sức khỏe thành công! 🌸");
 });
 
 function calculateAndDisplayStats() {
     if (!userProfile) return;
     
-    // BMI
     const h = userProfile.height / 100;
     const bmi = (userProfile.weight / (h * h)).toFixed(1);
     document.getElementById('stat-bmi').innerText = bmi;
     document.getElementById('stat-bmi-text').innerText = bmi < 18.5 ? "Gầy" : (bmi >= 25 ? "Thừa cân" : "Bình thường");
 
-    // BMR (Mifflin-St Jeor)
     let bmr = (10 * userProfile.weight) + (6.25 * userProfile.height) - (5 * userProfile.age) + (userProfile.gender === 'male' ? 5 : -161);
     document.getElementById('stat-bmr').innerText = Math.round(bmr) + " kcal";
 
-    // TDEE
     const tdee = bmr * userProfile.activity;
     document.getElementById('stat-tdee').innerText = Math.round(tdee) + " kcal";
 
-    // Target Calo
     let targetCalo = tdee + (userProfile.goal === 'lose' ? -300 : (userProfile.goal === 'gain' ? 300 : 0));
     document.getElementById('stat-target-calo').innerText = Math.round(targetCalo) + " kcal";
     document.getElementById('target-calo-display').innerText = Math.round(targetCalo);
     
-    // Target Nước (35ml / kg)
     document.getElementById('water-target').innerText = Math.round(userProfile.weight * 35);
     
     updateWaterUI();
@@ -142,7 +156,7 @@ document.getElementById('btn-theme').addEventListener('click', () => {
 });
 
 /* =========================================
-   4. THEO DÕI GIẤC NGỦ & STREAK
+   4. GIẤC NGỦ & STREAK
    ========================================= */
 let sleepLogs = JSON.parse(localStorage.getItem('helnai_sleep_logs')) || [];
 let lastSleepResult = null;
@@ -197,31 +211,33 @@ window.deleteSleep = function(id) {
 
 function renderSleep() {
     const historyEl = document.getElementById('sleep-history');
-    if (!historyEl) return;
-    historyEl.innerHTML = sleepLogs.map(log => `
-        <div class="history-item">
-            <div class="history-item-info">
-                <strong>${log.date} ${log.isStreak ? "🔥" : ""}</strong>
-                <span>${log.duration} (${log.cycles} chu kỳ)</span>
+    if (historyEl) {
+        historyEl.innerHTML = sleepLogs.map(log => `
+            <div class="history-item">
+                <div class="history-item-info">
+                    <strong>${log.date} ${log.isStreak ? "🔥" : ""}</strong>
+                    <span>${log.duration} (${log.cycles} chu kỳ)</span>
+                </div>
+                <button type="button" class="btn-delete" onclick="deleteSleep(${log.id})">Xóa</button>
             </div>
-            <button class="btn-delete" onclick="deleteSleep(${log.id})">Xóa</button>
-        </div>
-    `).join('');
+        `).join('');
+    }
 
     const calendarEl = document.getElementById('sleep-streak-calendar');
-    if (!calendarEl) return;
-    let recent7 = sleepLogs.slice(0, 7).reverse();
-    calendarEl.innerHTML = recent7.map(log => `
-        <div class="streak-day">
-            <span>${log.date}</span>
-            <div class="fire">${log.isStreak ? "🔥" : "💤"}</div>
-        </div>
-    `).join('');
+    if (calendarEl) {
+        let recent7 = sleepLogs.slice(0, 7).reverse();
+        calendarEl.innerHTML = recent7.map(log => `
+            <div class="streak-day">
+                <span>${log.date}</span>
+                <div class="fire">${log.isStreak ? "🔥" : "💤"}</div>
+            </div>
+        `).join('');
+    }
 }
 renderSleep();
 
 /* =========================================
-   5. QUẢN LÝ UỐNG NƯỚC
+   5. UỐNG NƯỚC
    ========================================= */
 let waterLogs = JSON.parse(localStorage.getItem('helnai_water_logs')) || [];
 
@@ -274,59 +290,50 @@ function updateWaterUI() {
                 <strong>${log.type} (+${log.amount}ml)</strong>
                 <span style="font-size:12px; color:var(--text-sub)">Lúc ${log.time}</span>
             </div>
-            <button class="btn-delete" onclick="deleteWater(${log.id})">Xóa</button>
+            <button type="button" class="btn-delete" onclick="deleteWater(${log.id})">Xóa</button>
         </li>
     `).join('');
 }
 updateWaterUI();
 
 /* =========================================
-   6. ĂN UỐNG & ƯỚC LƯỢNG DINH DƯỠNG NÂNG CẤP
+   6. ĂN UỐNG & ƯỚC LƯỢNG DINH DƯỠNG
    ========================================= */
 let foodLogs = JSON.parse(localStorage.getItem('helnai_food_logs')) || [];
 
-// Hàm nghiên cứu & phân tích dinh dưỡng theo ngữ cảnh
 function estimateNutrition(name) {
     let lowerName = name.toLowerCase().trim();
-    
     let cal = 120;
     let p = 3, c = 15, f = 3, fb = 1;
 
-    // 1. Matcha / Trà sữa / Nước ngọt
     if (lowerName.includes('matcha') || lowerName.includes('trà sữa') || lowerName.includes('nước ngọt')) {
         cal = 260; c = 42; f = 8; p = 3; fb = 0;
         if (lowerName.includes('700ml') || lowerName.includes('lớn') || lowerName.includes('size l')) {
             cal = 420; c = 68; f = 12; p = 5;
         }
     } 
-    // 2. Trái cây tươi (Lê, Táo, Chuối...)
     else if (lowerName.includes('lê') || lowerName.includes('táo') || lowerName.includes('chuối') || lowerName.includes('trái') || lowerName.includes('quả')) {
         cal = 60; c = 15; f = 0.2; p = 0.5; fb = 3.5;
         if (lowerName.includes('nửa') || lowerName.includes('1/2')) {
             cal = 35; c = 8; fb = 1.8;
         }
     } 
-    // 3. Sữa chua / Yogurt
     else if (lowerName.includes('sữa chua') || lowerName.includes('yogurt')) {
         cal = 95; c = 12; f = 3; p = 3.5; fb = 0;
         if (lowerName.includes('có đường')) {
             cal = 125; c = 19;
         }
     }
-    // 4. Thịt / Đạm cao (Gà, Bò, Heo, Trứng, Thịt)
     else if (lowerName.includes('bò') || lowerName.includes('gà') || lowerName.includes('thịt') || lowerName.includes('trứng')) {
         cal = 280; p = 26; c = 2; f = 16; fb = 0;
     }
-    // 5. Tinh bột (Cơm, Phở, Bún, Mì)
     else if (lowerName.includes('cơm') || lowerName.includes('phở') || lowerName.includes('bún') || lowerName.includes('mì')) {
         cal = 450; p = 16; c = 65; f = 11; fb = 2;
     }
-    // 6. Rau / Salad
     else if (lowerName.includes('rau') || lowerName.includes('salad')) {
         cal = 50; p = 2; c = 8; f = 1; fb = 4.5;
     }
 
-    // Tạo chút ngẫu nhiên nhỏ để các số không bị trùng khớp 100%
     let offset = Math.floor(Math.random() * 8) - 4;
     cal = Math.max(15, cal + offset);
 
@@ -402,7 +409,7 @@ function updateFoodUI() {
                 <strong>${log.name} (${log.cal} kcal)</strong>
                 <span style="font-size:12px; color:var(--text-sub)">Đ: ${log.p}g | B: ${log.c}g | Béo: ${log.f}g | Xơ: ${log.fb}g</span>
             </div>
-            <button class="btn-delete" onclick="deleteFood(${log.id})">Xóa</button>
+            <button type="button" class="btn-delete" onclick="deleteFood(${log.id})">Xóa</button>
         </li>
     `).join('');
 }
@@ -445,7 +452,7 @@ function renderWorkout() {
                 <input type="checkbox" ${w.done ? 'checked' : ''} onchange="toggleWorkout(${w.id})">
                 <span style="${w.done ? 'text-decoration: line-through; opacity:0.6;' : ''}">${w.text}</span>
             </div>
-            <button class="btn-delete" onclick="deleteWorkout(${w.id})">Xóa</button>
+            <button type="button" class="btn-delete" onclick="deleteWorkout(${w.id})">Xóa</button>
         </li>
     `).join('');
 }
