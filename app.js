@@ -30,6 +30,7 @@ window.toggleDarkMode = function() {
     document.body.classList.toggle('dark-mode');
 };
 
+// Quản lý Ngày chọn & Tuần xem
 let selectedDate = new Date().toISOString().split('T')[0];
 let currentWeekOffset = 0;
 
@@ -432,7 +433,6 @@ async function fetchNutritionFromGemini(foodQuery) {
     }
 
     if (GEMINI_API_KEY) {
-        // Đường dẫn API chuẩn không dính bẫy Markdown
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
         
         const promptText = `Bạn là chuyên gia dinh dưỡng Việt Nam. Hãy phân tích và tính toán dinh dưỡng thực tế cho món ăn: "${foodQuery}".
@@ -454,6 +454,4 @@ Matcha sữa 700ml -> {"cal": 450, "p": 6, "c": 65, "f": 14, "fb": 0}`;
             if (response.ok) {
                 const data = await response.json();
                 let rawText = data.candidates[0].content.parts[0].text.trim();
-                
-                // Vệ sinh sạch sẽ JSON
                 rawText = rawText.replace(/```json/gi, '').replace(/
