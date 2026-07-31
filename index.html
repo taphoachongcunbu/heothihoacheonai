@@ -137,7 +137,7 @@
                 <div class="header-title">
                     <h1>Theo dõi Giấc ngủ 🌙</h1>
                 </div>
-                <div id="sleep-date-bar" class="date-selector-bar"></div>
+                <div id="sleep-date-bar" class="date-selector-wrapper"></div>
 
                 <div class="content-grid">
                     <div class="panel glass">
@@ -174,7 +174,7 @@
                 <div class="header-title">
                     <h1>Mục tiêu Nước Uống 💧</h1>
                 </div>
-                <div id="water-date-bar" class="date-selector-bar"></div>
+                <div id="water-date-bar" class="date-selector-wrapper"></div>
 
                 <div class="content-grid">
                     <div class="panel glass center-content">
@@ -215,7 +215,7 @@
                 <div class="header-title">
                     <h1>Nhật ký Ăn uống 🍏</h1>
                 </div>
-                <div id="food-date-bar" class="date-selector-bar"></div>
+                <div id="food-date-bar" class="date-selector-wrapper"></div>
 
                 <div class="content-grid">
                     <div class="panel glass center-content">
@@ -251,12 +251,12 @@
                 <div class="header-title">
                     <h1>Nhật ký Tập luyện 🏃</h1>
                 </div>
-                <div id="workout-date-bar" class="date-selector-bar"></div>
+                <div id="workout-date-bar" class="date-selector-wrapper"></div>
 
                 <div class="panel glass" style="margin-bottom: 20px;">
                     <div class="workout-mode-buttons">
-                        <button type="button" onclick="setWorkoutStatus('normal')" class="btn-secondary">🏋️ Ngày tập luyện</button>
-                        <button type="button" onclick="setWorkoutStatus('off')" class="btn-secondary">🛌 Ngày nghỉ (Day Off)</button>
+                        <button type="button" onclick="setWorkoutStatus('normal')" class="btn-secondary">🏋️ Ngày tập</button>
+                        <button type="button" onclick="setWorkoutStatus('off')" class="btn-secondary">🛌 Day Off</button>
                         <button type="button" onclick="setWorkoutStatus('cheat')" class="btn-secondary">🍕 Cheat Day</button>
                     </div>
                     <p id="workout-status-msg" style="margin-top: 15px; font-weight: bold; color: var(--primary); text-align: center;"></p>
@@ -264,8 +264,8 @@
 
                 <div class="panel glass">
                     <div class="form-row">
-                        <input type="text" id="workout-input" placeholder="Tên bài tập (VD: Chạy bộ, Gập bụng)..." style="flex:2">
-                        <input type="number" id="workout-duration" placeholder="Số phút" style="flex:1">
+                        <input type="text" id="workout-input" placeholder="Tên bài tập..." style="flex:2">
+                        <input type="number" id="workout-duration" placeholder="Phút" style="flex:1">
                         <select id="workout-type" style="flex:1">
                             <option value="Fullbody">🔥 Fullbody</option>
                             <option value="Leg day">🦵 Leg day</option>
