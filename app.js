@@ -1,5 +1,5 @@
 /* =========================================
-   1. UTILS & UI CORE
+   1. UTILS & DATE MANAGEMENT
    ========================================= */
 function showToast(message) {
     const container = document.getElementById('toast-container');
@@ -28,6 +28,48 @@ window.switchTab = function(targetId, btnElement) {
 
 window.toggleDarkMode = function() {
     document.body.classList.toggle('dark-mode');
+};
+
+// Quản lý ngày đang chọn (Mặc định là ngày hôm nay dạng YYYY-MM-DD)
+let selectedDate = new Date().toISOString().split('T')[0];
+
+function getRecent7Days() {
+    let days = [];
+    for (let i = 6; i >= 0; i--) {
+        let d = new Date();
+        d.setDate(d.getDate() - i);
+        days.push({
+            full: d.toISOString().split('T')[0],
+            dayName: d.toLocaleDateString('vi-VN', { weekday: 'short' }),
+            dateNum: d.getDate()
+        });
+    }
+    return days;
+}
+
+function renderDateBars() {
+    const days = getRecent7Days();
+    const bars = ['sleep-date-bar', 'water-date-bar', 'food-date-bar', 'workout-date-bar'];
+    
+    bars.forEach(barId => {
+        const bar = document.getElementById(barId);
+        if (!bar) return;
+        bar.innerHTML = days.map(d => `
+            <button type="button" class="date-btn ${d.full === selectedDate ? 'active' : ''}" onclick="selectDate('${d.full}')">
+                <span>${d.dayName}</span>
+                <strong>${d.dateNum}</strong>
+            </button>
+        `).join('');
+    });
+}
+
+window.selectDate = function(dateStr) {
+    selectedDate = dateStr;
+    renderDateBars();
+    renderSleep();
+    updateWaterUI();
+    updateFoodUI();
+    renderWorkout();
 };
 
 /* =========================================
@@ -69,11 +111,8 @@ try {
 } catch (e) { console.log("Firebase Load Info:", e); }
 
 window.loginGoogle = function() {
-    if(auth && provider) {
-        auth.signInWithPopup(provider).catch(err => showToast("Lỗi: " + err.message));
-    } else {
-        showToast("Đang ở chế độ trải nghiệm!");
-    }
+    if(auth && provider) auth.signInWithPopup(provider).catch(err => showToast("Lỗi: " + err.message));
+    else showToast("Đang ở chế độ trải nghiệm!");
 };
 
 window.logoutGoogle = function() {
@@ -81,7 +120,7 @@ window.logoutGoogle = function() {
 };
 
 /* =========================================
-   3. HỒ SƠ & TÍNH TOÁN
+   3. HỒ SƠ SỨC KHỎE
    ========================================= */
 let userProfile = JSON.parse(localStorage.getItem('helnai_user_profile')) || null;
 const userModal = document.getElementById('user-modal');
@@ -118,29 +157,39 @@ function calculateAndDisplayStats() {
     if (!userProfile) return;
     const h = userProfile.height / 100;
     const bmi = (userProfile.weight / (h * h)).toFixed(1);
-    if(document.getElementById('stat-bmi')) document.getElementById('stat-bmi').innerText = bmi;
-    if(document.getElementById('stat-bmi-text')) document.getElementById('stat-bmi-text').innerText = bmi < 18.5 ? "Gầy" : (bmi >= 25 ? "Thừa cân" : "Bình thường");
+    document.getElementById('stat-bmi').innerText = bmi;
+    document.getElementById('stat-bmi-text').innerText = bmi < 18.5 ? "Gầy" : (bmi >= 25 ? "Thừa cân" : "Bình thường");
 
-    let bmr = (10 * userProfile.weight) + (6.25 * userProfile.height) - (5 * userProfile.age) + (userProfile.gender === 'male' ? 5 : -161);
-    if(document.getElementById('stat-bmr')) document.getElementById('stat-bmr').innerText = Math.round(bmr) + " kcal";
+    let bmr = Math.round((10 * userProfile.weight) + (6.25 * userProfile.height) - (5 * userProfile.age) + (userProfile.gender === 'male' ? 5 : -161));
+    document.getElementById('stat-bmr').innerText = bmr + " kcal";
 
-    const tdee = bmr * userProfile.activity;
-    if(document.getElementById('stat-tdee')) document.getElementById('stat-tdee').innerText = Math.round(tdee) + " kcal";
+    const tdee = Math.round(bmr * userProfile.activity);
+    document.getElementById('stat-tdee').innerText = tdee + " kcal";
 
-    let targetCalo = tdee + (userProfile.goal === 'lose' ? -300 : (userProfile.goal === 'gain' ? 300 : 0));
-    if(document.getElementById('stat-target-calo')) document.getElementById('stat-target-calo').innerText = Math.round(targetCalo) + " kcal";
-    if(document.getElementById('target-calo-display')) document.getElementById('target-calo-display').innerText = Math.round(targetCalo);
+    // Tính khoảng calo nạp gợi ý
+    let targetCalo = tdee;
+    let goalText = "Duy trì vóc dáng";
+    if (userProfile.goal === 'lose') {
+        targetCalo = tdee - 350;
+        goalText = `Gợi ý nạp ~${targetCalo} kcal để giảm cân`;
+    } else if (userProfile.goal === 'gain') {
+        targetCalo = tdee + 350;
+        goalText = `Gợi ý nạp ~${targetCalo} kcal để tăng cơ`;
+    }
     
-    if(document.getElementById('water-target')) document.getElementById('water-target').innerText = Math.round(userProfile.weight * 35);
+    document.getElementById('stat-target-calo').innerText = targetCalo + " kcal";
+    document.getElementById('stat-goal-desc').innerText = goalText;
+    document.getElementById('target-calo-display').innerText = targetCalo;
+    document.getElementById('water-target').innerText = Math.round(userProfile.weight * 35);
     
     updateWaterUI();
     updateFoodUI();
 }
 
 /* =========================================
-   4. GIẤC NGỦ & STREAK
+   4. GIẤC NGỦ
    ========================================= */
-let sleepLogs = JSON.parse(localStorage.getItem('helnai_sleep_logs')) || [];
+let sleepLogs = JSON.parse(localStorage.getItem('helnai_sleep_logs')) || {};
 let lastSleepResult = null;
 
 window.calculateSleep = function() {
@@ -160,96 +209,91 @@ window.calculateSleep = function() {
     
     lastSleepResult = {
         id: Date.now(),
-        date: new Date().toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit'}),
         duration: `${Math.floor(diff/60)}h ${diff%60}m`,
         cycles: (diff / 90).toFixed(1),
         isStreak: isStreak
     };
 
     document.getElementById('sleep-result').innerHTML = `
-        <p>Tổng thời gian: <b>${lastSleepResult.duration}</b> (${lastSleepResult.cycles} chu kỳ)</p>
-        <p>${isStreak ? "🔥 Bạn đã đạt mục tiêu ngủ sớm!" : "Hôm nay thức hơi khuya nha, ngày mai cố ngủ sớm hơn nhé! 💜"}</p>
+        <p>Thời gian ngủ: <b>${lastSleepResult.duration}</b> (${lastSleepResult.cycles} chu kỳ)</p>
+        <p>${isStreak ? "🔥 Đạt mục tiêu ngủ sớm!" : "Hôm nay thức hơi khuya, mai cố gắng ngủ sớm hơn nha! 💜"}</p>
     `;
     document.getElementById('btn-log-sleep').style.display = 'block';
 };
 
 window.saveSleepLog = function() {
     if (lastSleepResult) {
-        sleepLogs.unshift(lastSleepResult);
+        sleepLogs[selectedDate] = lastSleepResult;
         localStorage.setItem('helnai_sleep_logs', JSON.stringify(sleepLogs));
         renderSleep();
-        showToast("Đã lưu nhật ký giấc ngủ!");
+        showToast("Đã lưu giấc ngủ cho ngày " + selectedDate);
         document.getElementById('btn-log-sleep').style.display = 'none';
     }
 };
 
-window.deleteSleep = function(id) {
-    sleepLogs = sleepLogs.filter(log => log.id !== id);
+window.deleteSleep = function() {
+    delete sleepLogs[selectedDate];
     localStorage.setItem('helnai_sleep_logs', JSON.stringify(sleepLogs));
     renderSleep();
-    showToast("Đã xóa nhật ký!");
+    showToast("Đã xóa nhật ký giấc ngủ!");
 };
 
 function renderSleep() {
     const historyEl = document.getElementById('sleep-history');
-    if (historyEl) {
-        historyEl.innerHTML = sleepLogs.map(log => `
+    if (!historyEl) return;
+    const log = sleepLogs[selectedDate];
+    if (log) {
+        historyEl.innerHTML = `
             <div class="history-item">
                 <div class="history-item-info">
-                    <strong>${log.date} ${log.isStreak ? "🔥" : ""}</strong>
-                    <span>${log.duration} (${log.cycles} chu kỳ)</span>
+                    <strong>Ngày ${selectedDate} ${log.isStreak ? "🔥 Streak" : ""}</strong>
+                    <span>Thói quen: ${log.duration} (${log.cycles} chu kỳ)</span>
                 </div>
-                <button type="button" class="btn-delete" onclick="deleteSleep(${log.id})">Xóa</button>
+                <button type="button" class="btn-delete" onclick="deleteSleep()">Xóa</button>
             </div>
-        `).join('');
-    }
-
-    const calendarEl = document.getElementById('sleep-streak-calendar');
-    if (calendarEl) {
-        let recent7 = sleepLogs.slice(0, 7).reverse();
-        calendarEl.innerHTML = recent7.map(log => `
-            <div class="streak-day">
-                <span>${log.date}</span>
-                <div class="fire">${log.isStreak ? "🔥" : "💤"}</div>
-            </div>
-        `).join('');
+        `;
+    } else {
+        historyEl.innerHTML = `<p class="suggestion">Chưa có dữ liệu giấc ngủ cho ngày này.</p>`;
     }
 }
 
 /* =========================================
    5. UỐNG NƯỚC
    ========================================= */
-let waterLogs = JSON.parse(localStorage.getItem('helnai_water_logs')) || [];
+let waterLogs = JSON.parse(localStorage.getItem('helnai_water_logs')) || {};
 
 window.addWater = function() {
     const type = document.getElementById('water-type').value;
     const amount = parseInt(document.getElementById('water-custom-amount').value);
     if (!amount || amount <= 0) { showToast("Nhập số ml hợp lệ nha!"); return; }
 
-    waterLogs.unshift({
+    if (!waterLogs[selectedDate]) waterLogs[selectedDate] = [];
+    waterLogs[selectedDate].unshift({
         id: Date.now(), type: type, amount: amount,
         time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
     });
+
     localStorage.setItem('helnai_water_logs', JSON.stringify(waterLogs));
     document.getElementById('water-custom-amount').value = '';
     updateWaterUI();
-    showToast("Đã ghi nhận lượng nước!");
+    showToast("Đã thêm nước!");
 };
 
 window.deleteWater = function(id) {
-    waterLogs = waterLogs.filter(log => log.id !== id);
-    localStorage.setItem('helnai_water_logs', JSON.stringify(waterLogs));
-    updateWaterUI();
-    showToast("Đã xóa lịch sử uống!");
+    if (waterLogs[selectedDate]) {
+        waterLogs[selectedDate] = waterLogs[selectedDate].filter(log => log.id !== id);
+        localStorage.setItem('helnai_water_logs', JSON.stringify(waterLogs));
+        updateWaterUI();
+        showToast("Đã xóa!");
+    }
 };
 
 function updateWaterUI() {
-    const targetEl = document.getElementById('water-target');
-    if(!targetEl) return;
-    const target = parseInt(targetEl.innerText) || 2000;
+    const target = parseInt(document.getElementById('water-target').innerText) || 2000;
+    const logs = waterLogs[selectedDate] || [];
     let totalWater = 0; let nonWater = 0;
     
-    waterLogs.forEach(log => {
+    logs.forEach(log => {
         totalWater += log.amount;
         if (log.type !== "Nước lọc") nonWater += log.amount;
     });
@@ -257,15 +301,22 @@ function updateWaterUI() {
     document.getElementById('water-current').innerText = totalWater;
     let pct = Math.min((totalWater / target) * 100, 100);
     document.getElementById('water-circle').style.background = `conic-gradient(var(--primary) ${pct}%, var(--border) 0%)`;
-    document.getElementById('water-streak-msg').innerText = totalWater >= target ? "🎉 Tuyệt! Bạn đã uống đủ nước hôm nay." : "";
+    
+    // Nút Streak Uống Nước
+    const streakMsg = document.getElementById('water-streak-msg');
+    if (totalWater >= target) {
+        streakMsg.innerHTML = "🔥 Đạt Streak Uống Nước Đủ Hôm Nay!";
+    } else {
+        streakMsg.innerText = "";
+    }
     
     const warnEl = document.getElementById('water-warning');
     if (nonWater > 500) {
-        warnEl.innerText = `⚠️ Nhắc nhở: Bạn đang nạp khá nhiều thức uống khác (${nonWater}ml). Hãy ưu tiên nước lọc nhé!`;
+        warnEl.innerText = `⚠️ Nhắc nhở: Bạn đang nạp (${nonWater}ml) thức uống khác. Hãy ưu tiên nước lọc nhé!`;
         warnEl.style.display = 'block';
     } else { warnEl.style.display = 'none'; }
 
-    document.getElementById('water-log-list').innerHTML = waterLogs.map(log => `
+    document.getElementById('water-log-list').innerHTML = logs.map(log => `
         <li class="history-item">
             <div class="history-item-info">
                 <strong>${log.type} (+${log.amount}ml)</strong>
@@ -277,9 +328,9 @@ function updateWaterUI() {
 }
 
 /* =========================================
-   6. ĂN UỐNG
+   6. ĂN UỐNG & DINH DƯỠNG
    ========================================= */
-let foodLogs = JSON.parse(localStorage.getItem('helnai_food_logs')) || [];
+let foodLogs = JSON.parse(localStorage.getItem('helnai_food_logs')) || {};
 
 function estimateNutrition(name) {
     let lowerName = name.toLowerCase().trim();
@@ -310,8 +361,10 @@ window.addFood = function() {
     const name = document.getElementById('food-input').value;
     if (!name.trim()) { showToast("Nhập tên món ăn nha!"); return; }
 
+    if (!foodLogs[selectedDate]) foodLogs[selectedDate] = [];
     let nut = estimateNutrition(name);
-    foodLogs.unshift({ id: Date.now(), name: name, cal: nut.cal, p: nut.p, c: nut.c, f: nut.f, fb: nut.fb });
+    foodLogs[selectedDate].unshift({ id: Date.now(), name: name, cal: nut.cal, p: nut.p, c: nut.c, f: nut.f, fb: nut.fb });
+
     localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
     document.getElementById('food-input').value = "";
     updateFoodUI();
@@ -319,19 +372,23 @@ window.addFood = function() {
 };
 
 window.deleteFood = function(id) {
-    foodLogs = foodLogs.filter(log => log.id !== id);
-    localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
-    updateFoodUI();
-    showToast("Đã xóa món ăn!");
+    if (foodLogs[selectedDate]) {
+        foodLogs[selectedDate] = foodLogs[selectedDate].filter(log => log.id !== id);
+        localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
+        updateFoodUI();
+        showToast("Đã xóa món!");
+    }
 };
 
 function updateFoodUI() {
-    const targetEl = document.getElementById('target-calo-display');
-    if(!targetEl) return;
-    const target = parseInt(targetEl.innerText) || 2000;
+    const target = parseInt(document.getElementById('target-calo-display').innerText) || 2000;
+    const bmr = parseInt(document.getElementById('stat-bmr').innerText) || 1200;
+    const tdee = parseInt(document.getElementById('stat-tdee').innerText) || 2000;
+    
+    const logs = foodLogs[selectedDate] || [];
     let tCal=0, tP=0, tC=0, tF=0, tFb=0;
     
-    foodLogs.forEach(log => {
+    logs.forEach(log => {
         tCal += log.cal; tP += log.p; tC += log.c; tF += log.f; tFb += log.fb;
     });
 
@@ -341,24 +398,28 @@ function updateFoodUI() {
     document.getElementById('macro-fat').innerText = tF;
     document.getElementById('macro-fiber').innerText = Math.round(tFb);
 
+    document.getElementById('food-range-info').innerText = `Tối thiểu: ${bmr} kcal | Tối đa (TDEE): ${tdee} kcal`;
+
     let pct = Math.min((tCal / target) * 100, 100);
-    let circleColor = tCal > target ? "var(--danger)" : "var(--primary)";
+    let circleColor = tCal > tdee ? "var(--danger)" : "var(--primary)";
     document.getElementById('food-circle').style.background = `conic-gradient(${circleColor} ${pct}%, var(--border) 0%)`;
 
-    if (tCal > target) {
-        document.getElementById('food-streak-msg').innerHTML = `<span style="color:var(--danger)">⚠️ Đã vượt mục tiêu Calo hôm nay!</span>`;
-    } else if (tCal > target * 0.8) {
-        document.getElementById('food-streak-msg').innerText = "✅ Sắp đạt mục tiêu Calo (Streak an toàn)";
+    // Biểu tượng Streak Ăn uống
+    const streakMsg = document.getElementById('food-streak-msg');
+    if (tCal > 0 && tCal <= tdee) {
+        streakMsg.innerHTML = "🔥 Streak Kiểm Soát Calo Tốt (Chưa Vượt Mức)!";
+    } else if (tCal > tdee) {
+        streakMsg.innerHTML = `<span style="color:var(--danger)">⚠️ Đã vượt mức Calo tối đa duy trì!</span>`;
     } else {
-        document.getElementById('food-streak-msg').innerText = "";
+        streakMsg.innerText = "";
     }
 
     let advice = "";
-    if (tP < 40) advice += "Cần bổ sung thêm đạm (Thịt/Cá/Trứng). ";
-    if (tFb < 12) advice += "Đang thiếu chất xơ (Nên ăn thêm rau xanh/trái cây).";
-    document.getElementById('food-advice').innerText = advice || "Dinh dưỡng hôm nay khá cân bằng!";
+    if (tP < 40) advice += "Nên thêm đạm (Thịt/Cá/Trứng). ";
+    if (tFb < 12) advice += "Thêm chất xơ (Rau xanh/Trái cây).";
+    document.getElementById('food-advice').innerText = advice || "Dinh dưỡng khá cân bằng!";
 
-    document.getElementById('food-list').innerHTML = foodLogs.map(log => `
+    document.getElementById('food-list').innerHTML = logs.map(log => `
         <li class="history-item">
             <div class="history-item-info">
                 <strong>${log.name} (${log.cal} kcal)</strong>
@@ -370,48 +431,89 @@ function updateFoodUI() {
 }
 
 /* =========================================
-   7. THỂ THAO & INIT
+   7. THỂ THAO & WORKOUT LOGS
    ========================================= */
-let workoutLogs = JSON.parse(localStorage.getItem('helnai_workout_logs')) || [];
+let workoutLogs = JSON.parse(localStorage.getItem('helnai_workout_logs')) || {};
+
+window.setWorkoutStatus = function(status) {
+    if (!workoutLogs[selectedDate]) workoutLogs[selectedDate] = { mode: 'normal', items: [] };
+    workoutLogs[selectedDate].mode = status;
+    localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
+    renderWorkout();
+};
 
 window.addWorkout = function() {
-    const val = document.getElementById('workout-input').value;
-    if (!val.trim()) { showToast("Nhập bài tập nha!"); return; }
+    const text = document.getElementById('workout-input').value;
+    const duration = parseInt(document.getElementById('workout-duration').value) || 30;
+    const type = document.getElementById('workout-type').value;
+    
+    if (!text.trim()) { showToast("Nhập tên bài tập nha!"); return; }
 
-    workoutLogs.unshift({ id: Date.now(), text: val, done: false });
+    if (!workoutLogs[selectedDate]) workoutLogs[selectedDate] = { mode: 'normal', items: [] };
+    if (!workoutLogs[selectedDate].items) workoutLogs[selectedDate].items = [];
+
+    workoutLogs[selectedDate].items.unshift({
+        id: Date.now(), text: text, duration: duration, type: type, done: false
+    });
+
     localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
     document.getElementById('workout-input').value = "";
+    document.getElementById('workout-duration').value = "";
     renderWorkout();
-    showToast("Đã thêm bài tập mới!");
+    showToast("Đã thêm bài tập!");
 };
 
 window.deleteWorkout = function(id) {
-    workoutLogs = workoutLogs.filter(w => w.id !== id);
-    localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
-    renderWorkout();
+    if (workoutLogs[selectedDate] && workoutLogs[selectedDate].items) {
+        workoutLogs[selectedDate].items = workoutLogs[selectedDate].items.filter(w => w.id !== id);
+        localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
+        renderWorkout();
+    }
 };
 
 window.toggleWorkout = function(id) {
-    workoutLogs = workoutLogs.map(w => w.id === id ? { ...w, done: !w.done } : w);
-    localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
-    renderWorkout();
+    if (workoutLogs[selectedDate] && workoutLogs[selectedDate].items) {
+        workoutLogs[selectedDate].items = workoutLogs[selectedDate].items.map(w => w.id === id ? { ...w, done: !w.done } : w);
+        localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
+        renderWorkout();
+    }
 };
 
 function renderWorkout() {
+    const dayData = workoutLogs[selectedDate] || { mode: 'normal', items: [] };
+    const statusMsg = document.getElementById('workout-status-msg');
+    const items = dayData.items || [];
+    
+    let totalMinutes = 0;
+    items.forEach(w => { if(w.done) totalMinutes += w.duration; });
+
+    if (dayData.mode === 'off') {
+        statusMsg.innerText = "🛌 Hôm nay là Ngày Nghỉ (Day Off). Bạn hãy nghỉ ngơi và nạp lại năng lượng thật tốt nha! 🌸";
+    } else if (dayData.mode === 'cheat') {
+        statusMsg.innerText = "🍕 Hôm nay là Cheat Day! Thỏa sức tận hưởng nhưng nhớ đừng ăn quá lố nhen! 😉";
+    } else {
+        if (totalMinutes > 0) {
+            statusMsg.innerText = `🔥 Giỏi quá! Hôm nay bạn đã tập luyện được ${totalMinutes} phút. Cố gắng phát huy nhé!`;
+        } else {
+            statusMsg.innerText = "💪 Hôm nay bạn dự định tập bài gì thế?";
+        }
+    }
+
     const listEl = document.getElementById('workout-list');
     if (!listEl) return;
-    listEl.innerHTML = workoutLogs.map(w => `
+    listEl.innerHTML = items.map(w => `
         <li class="history-item">
             <div style="display:flex; align-items:center; gap:10px;">
                 <input type="checkbox" ${w.done ? 'checked' : ''} onchange="toggleWorkout(${w.id})">
-                <span style="${w.done ? 'text-decoration: line-through; opacity:0.6;' : ''}">${w.text}</span>
+                <span style="${w.done ? 'text-decoration: line-through; opacity:0.6;' : ''}">[${w.type}] ${w.text} (${w.duration} phút)</span>
             </div>
             <button type="button" class="btn-delete" onclick="deleteWorkout(${w.id})">Xóa</button>
         </li>
     `).join('');
 }
 
-// Khởi chạy tự động
+// KHỞI CHẠY KHỔI ĐẦU
+renderDateBars();
 if (!userProfile) {
     userModal.classList.add('active');
 } else {
