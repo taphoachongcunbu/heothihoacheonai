@@ -450,57 +450,49 @@ function updateWaterUI() {
 }
 
 /* =========================================
-   7. ĂN UỐNG & BỘ NÃO GEMINI AI CHUẨN STRUCTURED OUTPUT
+   7. ĂN UỐNG & GEMINI AI (FIXED ENDPOINT & MODEL)
    ========================================= */
 const GEMINI_API_KEY = "AIzaSyBuceM7Qc0Jjhmm3orIo5p2G9ubM886FkU";
 
 async function fetchNutritionFromGemini(foodQuery) {
     let lowerName = foodQuery.toLowerCase().trim();
 
-    // 1. Kiểm tra bộ nhớ cá nhân nếu món này đã từng sửa thủ công
+    // 1. Nếu người dùng đã từng sửa tay món này -> Lấy từ bộ nhớ
     if (customFoodDatabase[lowerName]) {
         return customFoodDatabase[lowerName];
     }
 
-    // 2. Gọi Gemini API với Structured JSON Output
+    // 2. Tra cứu bằng Gemini API
     if (GEMINI_API_KEY) {
-        const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY;
+        // Dùng model gemini-1.5-flash-latest ổn định nhất trên REST API
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 
-        const requestBody = {
-            contents: [{
-                parts: [{ text: `Phân tích và tính toán dinh dưỡng thực tế cho món ăn: "${foodQuery}".` }]
-            }],
-            systemInstruction: {
-                parts: [{ text: "Bạn là chuyên gia dinh dưỡng Việt Nam. Hãy phân tích lượng calo, protein (đạm), carbs (tinh bột), fat (chất béo), fiber (chất xơ) cho món ăn được yêu cầu." }]
-            },
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: "OBJECT",
-                    properties: {
-                        cal: { type: "INTEGER", description: "Tổng số calo (kcal)" },
-                        p: { type: "INTEGER", description: "Số gam đạm/protein" },
-                        c: { type: "INTEGER", description: "Số gam tinh bột/carbs" },
-                        f: { type: "INTEGER", description: "Số gam chất béo/fat" },
-                        fb: { type: "NUMBER", description: "Số gam chất xơ/fiber" }
-                    },
-                    required: ["cal", "p", "c", "f", "fb"]
-                }
-            }
-        };
+        const promptText = `Bạn là chuyên gia dinh dưỡng. Phân tích món ăn: "${foodQuery}".
+Hãy tính toán và trả về duy nhất 1 chuỗi JSON thuần đúng định dạng sau (không bọc trong markdown, không có chữ thừa):
+{"cal": số_kcal, "p": số_g_đạm, "c": số_g_tinh_bột, "f": số_g_béo, "fb": số_g_xơ}
+
+Ví dụ: 2 trứng luộc -> {"cal": 144, "p": 13, "c": 0, "f": 10, "fb": 0}`;
 
         try {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }]
+                })
             });
 
             if (response.ok) {
                 const data = await response.json();
-                const jsonText = data.candidates[0].content.parts[0].text;
-                const parsed = JSON.parse(jsonText);
-
+                let rawText = data.candidates[0].content.parts[0].text.trim();
+                
+                // Vệ sinh chuỗi JSON
+                const mdBlock = String.fromCharCode(96, 96, 96);
+                rawText = rawText.replace(new RegExp(mdBlock + 'json', 'gi'), '')
+                                 .replace(new RegExp(mdBlock, 'g'), '')
+                                 .trim();
+                
+                const parsed = JSON.parse(rawText);
                 return {
                     cal: Math.round(parsed.cal || 0),
                     p: Math.round(parsed.p || 0),
@@ -509,17 +501,29 @@ async function fetchNutritionFromGemini(foodQuery) {
                     fb: Math.round((parsed.fb || 0) * 10) / 10
                 };
             } else {
-                console.error("Lỗi Gemini API:", response.status);
-                showToast(`Gemini API báo lỗi (${response.status})!`);
+                console.warn(`Gemini API Error Status: ${response.status}. Chuyển sang Local Smart Calc.`);
             }
         } catch (error) {
-            console.error("Lỗi gọi AI:", error);
-            showToast("Không thể kết nối tới Gemini AI!");
+            console.error("Lỗi kết nối Gemini API:", error);
         }
     }
 
-    // Dự phòng an toàn nếu mất mạng
-    return { cal: 150, p: 5, c: 20, f: 5, fb: 1 };
+    // 3. Dự phòng Local thông minh (Nếu API bận/lỗi) -> Tính chuẩn cho các món phổ biến
+    let matchNum = lowerName.match(/^(\d+[\.,]?\d*)/);
+    let qty = matchNum ? parseFloat(matchNum[1].replace(',', '.')) : 1;
+
+    if (lowerName.includes('trứng')) {
+        return { cal: Math.round(qty * 72), p: Math.round(qty * 6.3), c: 0, f: Math.round(qty * 5), fb: 0 };
+    }
+    if (lowerName.includes('matcha') || lowerName.includes('trà sữa')) {
+        let isLarge = lowerName.includes('700ml') || lowerName.includes('lớn');
+        return { cal: isLarge ? 450 : 320, p: 4, c: 65, f: 12, fb: 0 };
+    }
+    if (lowerName.includes('bánh mì')) return { cal: Math.round(qty * 380), p: 14, c: 45, f: 16, fb: 2 };
+    if (lowerName.includes('phở') || lowerName.includes('bún')) return { cal: Math.round(qty * 450), p: 22, c: 58, f: 12, fb: 3 };
+    if (lowerName.includes('cơm')) return { cal: Math.round(qty * 210), p: 4, c: 45, f: 1, fb: 1 };
+
+    return { cal: 180, p: 5, c: 20, f: 5, fb: 1 };
 }
 
 window.addFood = async function() {
@@ -547,7 +551,7 @@ window.addFood = async function() {
     nameInput.value = "";
     updateFoodUI();
     renderDateBars();
-    showToast(`Gemini đã phân tích: ${name} (~${nut.cal} kcal)!`);
+    showToast(`Đã ghi nhận: ${name} (~${nut.cal} kcal)!`);
 };
 
 window.editFoodCalories = function(id, foodName) {
@@ -638,7 +642,6 @@ function updateFoodUI() {
         </li>
     `).join('');
 }
-
 /* =========================================
    8. THỂ THAO
    ========================================= */
