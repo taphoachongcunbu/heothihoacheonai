@@ -283,5 +283,23 @@
     </div>
 
     <script src="app.js"></script>
+    <!-- Modal chỉnh sửa Calo tùy chỉnh -->
+<div id="edit-food-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <h3 style="margin-bottom: 15px; color: var(--primary);">Chỉnh sửa dinh dưỡng</h3>
+        <p id="edit-food-name" style="font-weight: bold; margin-bottom: 10px;"></p>
+        
+        <div class="input-group" style="margin-bottom: 15px;">
+            <label style="display:block; margin-bottom:5px; font-size:14px;">Số Calo (kcal):</label>
+            <input type="number" id="edit-food-cal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" onclick="closeEditModal()" style="padding: 8px 15px;">Hủy</button>
+            <button type="button" class="btn-primary" onclick="saveEditedFood()" style="padding: 8px 15px;">Lưu thay đổi</button>
+        </div>
+    </div>
+</div>
 </body>
+    
 </html>
