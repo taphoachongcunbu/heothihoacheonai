@@ -41,9 +41,8 @@ body { background-color: var(--bg-color); color: var(--text-color); min-height: 
 .header-title { margin-bottom: 30px; }
 .header-title h1 { font-size: 28px; color: var(--text-color); }
 
-/* TAB TOGGLE CRITICAL FIX */
-.tab-content { display: none !important; }
-.tab-content.active { display: block !important; animation: fadeIn 0.3s ease; }
+.tab-content { display: none; }
+.tab-content.active { display: block; animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
@@ -87,9 +86,8 @@ button { cursor: pointer; border-radius: 12px; font-weight: 700; transition: 0.2
 .macro-stats { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
 .macro { background: var(--primary-light); padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: bold; color: var(--primary); }
 
-/* MODAL FIX */
 .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 1000; }
-.modal.active { display: flex !important; }
+.modal.active { display: flex; }
 .modal-content { width: 90%; max-width: 550px; padding: 30px; border-radius: 24px; }
 .modal-content h2 { color: var(--primary); margin-bottom: 5px; }
 .subtitle { color: var(--text-sub); font-size: 14px; margin-bottom: 20px; }
