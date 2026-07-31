@@ -137,28 +137,27 @@ function calculateAndDisplayStats() {
 }
 
 /* =========================================
-   3. MENU CHUYỂN TAB & DARK MODE (FIXED)
+   3. MENU CHUYỂN TAB & DARK MODE (FIXED LẦN CUỐI 😂)
    ========================================= */
-document.addEventListener('DOMContentLoaded', () => {
-    const navBtns = document.querySelectorAll('.nav-btn');
-    const tabContents = document.querySelectorAll('.tab-content');
+const navBtns = document.querySelectorAll('.nav-btn');
+const tabContents = document.querySelectorAll('.tab-content');
 
-    navBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            const targetId = btn.getAttribute('data-target');
+navBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        // e.currentTarget giúp click chính xác vào nút, bất kể bấm trúng chữ hay icon
+        const targetBtn = e.currentTarget;
+        const targetId = targetBtn.getAttribute('data-target');
 
-            // Bỏ active tất cả nút và tab
-            navBtns.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
+        // Bỏ active tất cả nút và tab
+        navBtns.forEach(b => b.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
 
-            // Bật active cho nút và tab được chọn
-            btn.classList.add('active');
-            const targetContent = document.getElementById(targetId);
-            if (targetContent) {
-                targetContent.classList.add('active');
-            }
-        });
+        // Bật active cho nút và tab được chọn
+        targetBtn.classList.add('active');
+        const targetContent = document.getElementById(targetId);
+        if (targetContent) {
+            targetContent.classList.add('active');
+        }
     });
 });
 
