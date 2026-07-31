@@ -30,7 +30,6 @@ window.toggleDarkMode = function() {
     document.body.classList.toggle('dark-mode');
 };
 
-// Quản lý Ngày chọn & Tuần xem
 let selectedDate = new Date().toISOString().split('T')[0];
 let currentWeekOffset = 0;
 
@@ -314,7 +313,7 @@ window.saveSleepLog = function() {
         localStorage.setItem('helnai_sleep_logs', JSON.stringify(sleepLogs));
         renderSleep();
         renderDateBars();
-        showToast("Đã lưu giấc ngủ cho ngày " + selectedDate);
+        showToast("Đã lưu nhật ký giấc ngủ!");
         document.getElementById('btn-log-sleep').style.display = 'none';
     }
 };
@@ -418,7 +417,7 @@ function updateWaterUI() {
 }
 
 /* =========================================
-   6. ĂN UỐNG & BỘ NÃO GEMINI AI THẬT (FIXED REGEX)
+   6. ĂN UỐNG & GEMINI AI
    ========================================= */
 const GEMINI_API_KEY = "AIzaSyBuceM7Qc0Jjhmm3orIo5p2G9ubM886FkU";
 
@@ -433,7 +432,8 @@ async function fetchNutritionFromGemini(foodQuery) {
     }
 
     if (GEMINI_API_KEY) {
-        const url = `[https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$){GEMINI_API_KEY}`;
+        // Đường dẫn API chuẩn không dính bẫy Markdown
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
         
         const promptText = `Bạn là chuyên gia dinh dưỡng Việt Nam. Hãy phân tích và tính toán dinh dưỡng thực tế cho món ăn: "${foodQuery}".
 Chỉ trả về DUY NHẤT một chuỗi JSON chuẩn (Không bọc trong markdown, không thêm bất kỳ lời giải thích nào) theo đúng định dạng này:
@@ -455,240 +455,5 @@ Matcha sữa 700ml -> {"cal": 450, "p": 6, "c": 65, "f": 14, "fb": 0}`;
                 const data = await response.json();
                 let rawText = data.candidates[0].content.parts[0].text.trim();
                 
-                // Regex chuẩn loại bỏ markdown
-                rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-                
-                const parsedData = JSON.parse(rawText);
-                return {
-                    cal: Math.round(parsedData.cal || 0),
-                    p: Math.round(parsedData.p || 0),
-                    c: Math.round(parsedData.c || 0),
-                    f: Math.round(parsedData.f || 0),
-                    fb: Math.round((parsedData.fb || 0) * 10) / 10
-                };
-            } else {
-                console.error("Lỗi Gemini API:", response.status);
-                showToast(`Lỗi Gemini API (${response.status})!`);
-            }
-        } catch (error) {
-            console.error("Lỗi parse JSON:", error);
-            showToast("Lỗi xử lý phản hồi từ Gemini!");
-        }
-    }
-
-    return { cal: 200, p: 5, c: 25, f: 5, fb: 1 };
-}
-
-window.addFood = async function() {
-    const nameInput = document.getElementById('food-input');
-    const name = nameInput.value;
-    if (!name.trim()) { showToast("Nhập tên món ăn nha!"); return; }
-
-    showToast("🧠 Gemini AI đang tra cứu dinh dưỡng...");
-
-    if (!foodLogs[selectedDate]) foodLogs[selectedDate] = [];
-    let nut = await fetchNutritionFromGemini(name);
-
-    let newFoodItem = { 
-        id: Date.now(), 
-        name: name, 
-        cal: nut.cal, 
-        p: nut.p, 
-        c: nut.c, 
-        f: nut.f, 
-        fb: nut.fb 
-    };
-
-    foodLogs[selectedDate].unshift(newFoodItem);
-    localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
-    nameInput.value = "";
-    updateFoodUI();
-    renderDateBars();
-    showToast(`Gemini AI: ${name} (~${nut.cal} kcal)!`);
-};
-
-window.editFoodCalories = function(id, foodName) {
-    let currentLogs = foodLogs[selectedDate] || [];
-    let item = currentLogs.find(l => l.id === id);
-    if (!item) return;
-
-    let newCalStr = prompt(`Nhập lại số Calo chuẩn cho món "${foodName}":`, item.cal);
-    if (newCalStr === null) return;
-    let newCal = parseInt(newCalStr);
-
-    if (isNaN(newCal) || newCal < 0) {
-        showToast("Số calo không hợp lệ!");
-        return;
-    }
-
-    item.cal = newCal;
-    item.p = Math.round(newCal * 0.15 / 4);
-    item.c = Math.round(newCal * 0.5 / 4);
-    item.f = Math.round(newCal * 0.35 / 9);
-
-    localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
-
-    customFoodDatabase[foodName.toLowerCase().trim()] = { cal: item.cal, p: item.p, c: item.c, f: item.f, fb: item.fb };
-    localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
-
-    updateFoodUI();
-    showToast("Đã lưu số Calo mới vào bộ nhớ!");
-};
-
-window.deleteFood = function(id) {
-    if (foodLogs[selectedDate]) {
-        foodLogs[selectedDate] = foodLogs[selectedDate].filter(log => log.id !== id);
-        localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
-        updateFoodUI();
-        renderDateBars();
-        showToast("Đã xóa món!");
-    }
-};
-
-function updateFoodUI() {
-    const target = parseInt(document.getElementById('target-calo-display').innerText) || 2000;
-    const bmr = parseInt(document.getElementById('stat-bmr').innerText) || 1200;
-    const tdee = parseInt(document.getElementById('stat-tdee').innerText) || 2000;
-    
-    const logs = foodLogs[selectedDate] || [];
-    let tCal=0, tP=0, tC=0, tF=0, tFb=0;
-    
-    logs.forEach(log => {
-        tCal += log.cal; tP += log.p; tC += log.c; tF += log.f; tFb += log.fb;
-    });
-
-    document.getElementById('food-current').innerText = tCal;
-    document.getElementById('macro-pro').innerText = tP;
-    document.getElementById('macro-carb').innerText = tC;
-    document.getElementById('macro-fat').innerText = tF;
-    document.getElementById('macro-fiber').innerText = Math.round(tFb);
-
-    document.getElementById('food-range-info').innerText = `Tối thiểu: ${bmr} kcal | Tối đa (TDEE): ${tdee} kcal`;
-
-    let pct = Math.min((tCal / target) * 100, 100);
-    let circleColor = tCal > tdee ? "var(--danger)" : "var(--primary)";
-    document.getElementById('food-circle').style.background = `conic-gradient(${circleColor} ${pct}%, var(--border) 0%)`;
-
-    const streakMsg = document.getElementById('food-streak-msg');
-    if (tCal > 0 && tCal <= tdee) {
-        streakMsg.innerHTML = "🔥 Streak Kiểm Soát Calo Tốt!";
-    } else if (tCal > tdee) {
-        streakMsg.innerHTML = `<span style="color:var(--danger)">⚠️ Đã vượt mức Calo tối đa!</span>`;
-    } else {
-        streakMsg.innerText = "";
-    }
-
-    let advice = "";
-    if (tP < 40) advice += "Nên thêm đạm (Thịt/Cá/Trứng). ";
-    if (tFb < 12) advice += "Thêm chất xơ (Rau xanh/Trái cây).";
-    document.getElementById('food-advice').innerText = advice || "Dinh dưỡng khá cân bằng!";
-
-    document.getElementById('food-list').innerHTML = logs.map(log => `
-        <li class="history-item" style="cursor: pointer;" title="Bấm vào để sửa số Calo">
-            <div class="history-item-info" onclick="editFoodCalories(${log.id}, '${log.name}')">
-                <strong>${log.name} (${log.cal} kcal) ✏️</strong>
-                <span style="font-size:12px; color:var(--text-sub)">Đ: ${log.p}g | B: ${log.c}g | Béo: ${log.f}g | Xơ: ${log.fb}g</span>
-            </div>
-            <button type="button" class="btn-delete" onclick="deleteFood(${log.id})">Xóa</button>
-        </li>
-    `).join('');
-}
-
-/* =========================================
-   7. THỂ THAO
-   ========================================= */
-let workoutLogs = JSON.parse(localStorage.getItem('helnai_workout_logs')) || {};
-
-window.setWorkoutStatus = function(status) {
-    if (!workoutLogs[selectedDate]) workoutLogs[selectedDate] = { mode: 'normal', items: [] };
-    workoutLogs[selectedDate].mode = status;
-    localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
-    renderWorkout();
-    renderDateBars();
-};
-
-window.addWorkout = function() {
-    const text = document.getElementById('workout-input').value;
-    const duration = parseInt(document.getElementById('workout-duration').value) || 30;
-    const type = document.getElementById('workout-type').value;
-    
-    if (!text.trim()) { showToast("Nhập tên bài tập nha!"); return; }
-
-    if (!workoutLogs[selectedDate]) workoutLogs[selectedDate] = { mode: 'normal', items: [] };
-    if (!workoutLogs[selectedDate].items) workoutLogs[selectedDate].items = [];
-
-    workoutLogs[selectedDate].items.unshift({
-        id: Date.now(), text: text, duration: duration, type: type, done: false
-    });
-
-    localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
-    document.getElementById('workout-input').value = "";
-    document.getElementById('workout-duration').value = "";
-    renderWorkout();
-    renderDateBars();
-    showToast("Đã thêm bài tập!");
-};
-
-window.deleteWorkout = function(id) {
-    if (workoutLogs[selectedDate] && workoutLogs[selectedDate].items) {
-        workoutLogs[selectedDate].items = workoutLogs[selectedDate].items.filter(w => w.id !== id);
-        localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
-        renderWorkout();
-        renderDateBars();
-    }
-};
-
-window.toggleWorkout = function(id) {
-    if (workoutLogs[selectedDate] && workoutLogs[selectedDate].items) {
-        workoutLogs[selectedDate].items = workoutLogs[selectedDate].items.map(w => w.id === id ? { ...w, done: !w.done } : w);
-        localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
-        renderWorkout();
-        renderDateBars();
-    }
-};
-
-function renderWorkout() {
-    const dayData = workoutLogs[selectedDate] || { mode: 'normal', items: [] };
-    const statusMsg = document.getElementById('workout-status-msg');
-    const items = dayData.items || [];
-    
-    let totalMinutes = 0;
-    items.forEach(w => { if(w.done) totalMinutes += w.duration; });
-
-    if (dayData.mode === 'off') {
-        statusMsg.innerText = "🛌 Hôm nay là Ngày Nghỉ (Day Off). Bạn hãy nghỉ ngơi và nạp lại năng lượng thật tốt nha! 🌸";
-    } else if (dayData.mode === 'cheat') {
-        statusMsg.innerText = "🍕 Hôm nay là Cheat Day! Thỏa sức tận hưởng nhưng nhớ đừng ăn quá lố nhen! 😉";
-    } else {
-        if (totalMinutes > 0) {
-            statusMsg.innerText = `🔥 Giỏi quá! Hôm nay bạn đã tập luyện được ${totalMinutes} phút. Cố gắng phát huy nhé!`;
-        } else {
-            statusMsg.innerText = "💪 Hôm nay bạn dự định tập bài gì thế?";
-        }
-    }
-
-    const listEl = document.getElementById('workout-list');
-    if (!listEl) return;
-    listEl.innerHTML = items.map(w => `
-        <li class="history-item">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <input type="checkbox" ${w.done ? 'checked' : ''} onchange="toggleWorkout(${w.id})">
-                <span style="${w.done ? 'text-decoration: line-through; opacity:0.6;' : ''}">[${w.type}] ${w.text} (${w.duration} phút)</span>
-            </div>
-            <button type="button" class="btn-delete" onclick="deleteWorkout(${w.id})">Xóa</button>
-        </li>
-    `).join('');
-}
-
-// KHỞI CHẠY BẦU KHÔNG KHÍ BAN ĐẦU
-renderDateBars();
-if (!userProfile) {
-    userModal.classList.add('active');
-} else {
-    userModal.classList.remove('active');
-    calculateAndDisplayStats();
-}
-renderSleep();
-updateWaterUI();
-updateFoodUI();
-renderWorkout();
+                // Vệ sinh sạch sẽ JSON
+                rawText = rawText.replace(/```json/gi, '').replace(/
