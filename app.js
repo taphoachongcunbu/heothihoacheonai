@@ -30,7 +30,6 @@ window.toggleDarkMode = function() {
     document.body.classList.toggle('dark-mode');
 };
 
-// Quản lý Ngày chọn & Tuần xem
 let selectedDate = new Date().toISOString().split('T')[0];
 let currentWeekOffset = 0;
 
@@ -418,7 +417,7 @@ function updateWaterUI() {
 }
 
 /* =========================================
-   6. ĂN UỐNG & GEMINI AI
+   6. ĂN UỐNG & GEMINI AI 
    ========================================= */
 const GEMINI_API_KEY = "AIzaSyBuceM7Qc0Jjhmm3orIo5p2G9ubM886FkU";
 
@@ -433,7 +432,9 @@ async function fetchNutritionFromGemini(foodQuery) {
     }
 
     if (GEMINI_API_KEY) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        // Tách chuỗi URL để tránh bị format thành link Markdown
+        const endpointBase = "https://" + "generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=";
+        const url = endpointBase + GEMINI_API_KEY;
         
         const promptText = `Bạn là chuyên gia dinh dưỡng Việt Nam. Hãy phân tích và tính toán dinh dưỡng thực tế cho món ăn: "${foodQuery}".
 Chỉ trả về DUY NHẤT một chuỗi JSON chuẩn (Không bọc trong markdown, không thêm bất kỳ lời giải thích nào) theo đúng định dạng này:
@@ -454,4 +455,6 @@ Matcha sữa 700ml -> {"cal": 450, "p": 6, "c": 65, "f": 14, "fb": 0}`;
             if (response.ok) {
                 const data = await response.json();
                 let rawText = data.candidates[0].content.parts[0].text.trim();
-                rawText = rawText.replace(/```json/gi, '').replace(/
+                
+                // Dùng Regex an toàn, không chứa dấu tick trực tiếp để tránh bị đứt code
+                rawText = rawText.replace(new RegExp('```json', 'gi'), '').replace(new RegExp('
