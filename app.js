@@ -137,23 +137,39 @@ function calculateAndDisplayStats() {
 }
 
 /* =========================================
-   3. MENU CHUYỂN TAB & DARK MODE
+   3. MENU CHUYỂN TAB & DARK MODE (FIXED)
    ========================================= */
-const navBtns = document.querySelectorAll('.nav-btn');
-const tabContents = document.querySelectorAll('.tab-content');
+document.addEventListener('DOMContentLoaded', () => {
+    const navBtns = document.querySelectorAll('.nav-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
 
-navBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        navBtns.forEach(b => b.classList.remove('active'));
-        tabContents.forEach(c => c.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById(btn.dataset.target).classList.add('active');
+    navBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetId = btn.getAttribute('data-target');
+
+            // Bỏ active tất cả nút và tab
+            navBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+
+            // Bật active cho nút và tab được chọn
+            btn.classList.add('active');
+            const targetContent = document.getElementById(targetId);
+            if (targetContent) {
+                targetContent.classList.add('active');
+            }
+        });
     });
 });
 
-document.getElementById('btn-theme').addEventListener('click', () => {
-    document.body.classList.toggle('dark-mode');
-});
+// Dark Mode Switch
+const btnTheme = document.getElementById('btn-theme');
+if (btnTheme) {
+    btnTheme.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.body.classList.toggle('dark-mode');
+    });
+}
 
 /* =========================================
    4. GIẤC NGỦ & STREAK
