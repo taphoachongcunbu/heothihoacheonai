@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Healthy hoặc hel nái - Dashboard Sức Khỏe</title>
+    <title>Hel Nái - Dashboard Sức Khỏe</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
@@ -13,13 +13,13 @@
 </head>
 <body>
 
-    <!-- Toast Notification (Thay thế cho Alert) -->
+    <!-- Toast Notification -->
     <div id="toast-container"></div>
 
     <!-- MODAL NHẬP THÔNG TIN BAN ĐẦU -->
-    <div id="user-modal" class="modal active">
+    <div id="user-modal" class="modal">
         <div class="modal-content glass">
-            <h2>Hồ Sơ Sức Khỏe - Healthy 🌸</h2>
+            <h2>Hồ Sơ Sức Khỏe - Hel Nái 🌸</h2>
             <p class="subtitle">Nhập thông tin để hệ thống tính toán chỉ số chính xác cho bạn.</p>
             
             <form id="health-form">
@@ -71,22 +71,22 @@
         
         <aside class="sidebar glass">
             <div class="logo">
-                <h2>Healthy 💜</h2>
+                <h2>Hel Nái 💜</h2>
             </div>
             <nav class="nav-menu">
-                <button class="nav-btn active" data-target="overview"><i class='bx bx-grid-alt'></i> Tổng quan</button>
-                <button class="nav-btn" data-target="sleep"><i class='bx bx-moon'></i> Giấc ngủ</button>
-                <button class="nav-btn" data-target="water"><i class='bx bx-water'></i> Uống nước</button>
-                <button class="nav-btn" data-target="food"><i class='bx bx-bowl-rice'></i> Ăn uống</button>
-                <button class="nav-btn" data-target="workout"><i class='bx bx-run'></i> Thể thao</button>
+                <button type="button" class="nav-btn active" data-target="overview"><i class='bx bx-grid-alt'></i> Tổng quan</button>
+                <button type="button" class="nav-btn" data-target="sleep"><i class='bx bx-moon'></i> Giấc ngủ</button>
+                <button type="button" class="nav-btn" data-target="water"><i class='bx bx-water'></i> Uống nước</button>
+                <button type="button" class="nav-btn" data-target="food"><i class='bx bx-bowl-rice'></i> Ăn uống</button>
+                <button type="button" class="nav-btn" data-target="workout"><i class='bx bx-run'></i> Thể thao</button>
             </nav>
             <div class="sidebar-bottom">
                 <div id="auth-status" class="auth-box">
-                    <button id="btn-login" class="btn-secondary"><i class='bx bxl-google'></i> Đăng nhập</button>
+                    <button type="button" id="btn-login" class="btn-secondary"><i class='bx bxl-google'></i> Đăng nhập</button>
                 </div>
                 <div class="theme-toggle">
-                    <button id="btn-settings" class="icon-btn" title="Cài đặt chỉ số"><i class='bx bx-cog'></i></button>
-                    <button id="btn-theme" class="icon-btn" title="Đổi giao diện"><i class='bx bx-moon'></i></button>
+                    <button type="button" id="btn-settings" class="icon-btn" title="Cài đặt chỉ số"><i class='bx bx-cog'></i></button>
+                    <button type="button" id="btn-theme" class="icon-btn" title="Đổi giao diện"><i class='bx bx-moon'></i></button>
                 </div>
             </div>
         </aside>
@@ -155,11 +155,10 @@
                             <label>Mục tiêu ngủ trước giờ (Streak):</label>
                             <input type="time" id="streak-target-time" value="23:30">
                         </div>
-                        <button id="btn-calc-sleep" class="btn-primary">Phân tích giấc ngủ</button>
+                        <button type="button" id="btn-calc-sleep" class="btn-primary" style="margin-top: 15px;">Phân tích giấc ngủ</button>
                         <div id="sleep-result" class="result-box"></div>
-                        <button id="btn-log-sleep" class="btn-secondary" style="display:none; margin-top:10px; width:100%;">Lưu nhật ký ngủ 📖</button>
+                        <button type="button" id="btn-log-sleep" class="btn-secondary" style="display:none; margin-top:10px; width:100%;">Lưu nhật ký ngủ 📖</button>
                         
-                        <!-- Thanh Streak 7 ngày -->
                         <h4 style="margin-top:20px; color:var(--primary); font-size: 14px;">Chuỗi ngủ sớm 7 ngày gần nhất:</h4>
                         <div id="sleep-streak-calendar" class="streak-calendar"></div>
                     </div>
@@ -198,7 +197,7 @@
                             <div class="input-group" style="flex:1;">
                                 <input type="number" id="water-custom-amount" placeholder="ml (VD: 250)">
                             </div>
-                            <button id="btn-add-water" class="btn-primary">Uống!</button>
+                            <button type="button" id="btn-add-water" class="btn-primary">Uống!</button>
                         </div>
                         <p id="water-warning" class="warning-text" style="display:none; margin-top:10px; color: #ff6b6b; font-size:13px;"></p>
                     </div>
@@ -216,7 +215,6 @@
                     <h1>Nhật ký Ăn uống 🍏</h1>
                 </div>
                 <div class="content-grid">
-                    <!-- Vòng tròn Calo -->
                     <div class="panel glass center-content">
                         <div class="progress-circle" id="food-circle" style="background: conic-gradient(var(--primary) 0%, var(--border) 0%);">
                             <div class="progress-text">
@@ -236,10 +234,10 @@
 
                     <div class="panel glass">
                         <div class="form-row">
-                            <input type="text" id="food-input" placeholder="Bạn vừa ăn gì? (VD: 1 tô phở bò, 1 quả chuối)" style="flex:1">
-                            <button id="btn-add-food" class="btn-primary">Nhập</button>
+                            <input type="text" id="food-input" placeholder="Bạn vừa ăn gì? (VD: 1 tô phở bò, Matcha 700ml)" style="flex:1">
+                            <button type="button" id="btn-add-food" class="btn-primary">Nhập</button>
                         </div>
-                        <p class="note" style="text-align:left;">*Hệ thống AI sẽ tự động ước lượng Calo và Dinh dưỡng.</p>
+                        <p class="note" style="text-align:left;">*Hệ thống AI ước lượng dinh dưỡng theo ngữ cảnh.</p>
                         <ul id="food-list" class="checklist" style="margin-top:15px;"></ul>
                     </div>
                 </div>
@@ -253,13 +251,14 @@
                 <div class="panel glass">
                     <div class="form-row">
                         <input type="text" id="workout-input" placeholder="Bài tập hôm nay (VD: Chạy 30p, Gập bụng 50 cái)..." style="flex:1">
-                        <button id="btn-add-workout" class="btn-primary">Thêm bài tập</button>
+                        <button type="button" id="btn-add-workout" class="btn-primary">Thêm bài tập</button>
                     </div>
                     <ul id="workout-list" class="checklist"></ul>
                 </div>
             </section>
         </main>
     </div>
+
     <script src="app.js"></script>
 </body>
 </html>
