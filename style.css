@@ -38,12 +38,20 @@ body { background-color: var(--bg-color); color: var(--text-color); min-height: 
 .theme-toggle { display: flex; justify-content: space-between; }
 
 .main-content { flex: 1; padding: 40px; }
-.header-title { margin-bottom: 30px; }
+.header-title { margin-bottom: 20px; }
 .header-title h1 { font-size: 28px; color: var(--text-color); }
 
 .tab-content { display: none; }
 .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Thanh chọn lịch dàn hàng ngang */
+.date-selector-bar { display: flex; gap: 10px; overflow-x: auto; margin-bottom: 25px; padding-bottom: 5px; }
+.date-btn { display: flex; flex-direction: column; align-items: center; padding: 10px 16px; border-radius: 14px; background: var(--surface-color); border: 1px solid var(--border); cursor: pointer; min-width: 65px; transition: 0.2s; }
+.date-btn span { font-size: 12px; color: var(--text-sub); }
+.date-btn strong { font-size: 16px; margin-top: 2px; }
+.date-btn.active { background: var(--primary); color: white; }
+.date-btn.active span { color: white; }
 
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
 .stat-card { padding: 20px; display: flex; align-items: center; gap: 15px; }
@@ -55,7 +63,7 @@ body { background-color: var(--bg-color); color: var(--text-color); min-height: 
 .panel h3 { margin-bottom: 20px; color: var(--primary); }
 
 .input-group { display: flex; flex-direction: column; gap: 6px; }
-.form-row { display: flex; gap: 10px; margin-bottom: 15px; }
+.form-row { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
 label { font-size: 14px; font-weight: 600; color: var(--text-sub); }
 input, select { padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-color); font-size: 15px; outline: none; }
 
@@ -68,9 +76,10 @@ button { cursor: pointer; border-radius: 12px; font-weight: 700; transition: 0.2
 .icon-btn { background: transparent; color: var(--text-color); font-size: 22px; padding: 8px; }
 
 .center-content { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.progress-circle { width: 180px; height: 180px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; transition: background 0.5s; }
+.progress-circle { width: 180px; height: 180px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; transition: background 0.5s; }
 .progress-text { background: var(--surface-color); width: 150px; height: 150px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; }
 .water-input-area { display: flex; gap: 10px; width: 100%; align-items: flex-end; }
+.streak-badge { font-weight: 800; color: var(--primary); margin-bottom: 10px; font-size: 15px; }
 
 .checklist, .history-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
 .checklist li, .history-item { background: var(--bg-color); padding: 12px 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; }
@@ -78,13 +87,7 @@ button { cursor: pointer; border-radius: 12px; font-weight: 700; transition: 0.2
 .result-box { margin-top: 15px; padding: 15px; background: var(--primary-light); border-radius: 12px; font-size: 14px; }
 .suggestion, .note { font-size: 13px; color: var(--text-sub); }
 
-.streak-calendar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; }
-.streak-day { display: flex; flex-direction: column; align-items: center; background: var(--bg-color); padding: 8px; border-radius: 10px; min-width: 50px; }
-.streak-day span { font-size: 12px; color: var(--text-sub); }
-.streak-day .fire { font-size: 20px; margin-top: 4px; }
-
-.macro-stats { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
-.macro { background: var(--primary-light); padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: bold; color: var(--primary); }
+.workout-mode-buttons { display: flex; gap: 10px; justify-content: center; }
 
 .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 1000; }
 .modal.active { display: flex; }
