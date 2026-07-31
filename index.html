@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healthy hoặc hel nái</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Font chữ Aesthetic -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- Icon -->
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <!-- Firebase SDK (phiên bản qua CDN cho dễ xài) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+</head>
+<body>
+
+    <!-- Màn hình Đăng nhập -->
+    <div id="login-screen" class="screen active">
+        <div class="login-box glass">
+            <h1>Healthy hoặc hel nái 💜</h1>
+            <p>Theo dõi sức khỏe của bạn</p>
+            <button id="btn-login" class="btn-primary">
+                <i class='bx bxl-google'></i> Đăng nhập bằng Google
+            </button>
+        </div>
+    </div>
+
+    <!-- Màn hình App chính -->
+    <div id="app-screen" class="screen">
+        <header class="glass">
+            <div class="user-info">
+                <img id="user-avatar" src="" alt="Avatar">
+                <span id="user-name">Người dùng</span>
+            </div>
+            <div class="header-actions">
+                <button id="btn-theme" class="icon-btn"><i class='bx bx-moon'></i></button>
+                <button id="btn-logout" class="icon-btn"><i class='bx bx-log-out'></i></button>
+            </div>
+        </header>
+
+        <!-- Thanh Menu -->
+        <nav class="glass">
+            <button class="tab-btn active" data-target="sleep"><i class='bx bx-moon'></i> Giấc ngủ</button>
+            <button class="tab-btn" data-target="water"><i class='bx bx-water'></i> Nước</button>
+            <button class="tab-btn" data-target="food"><i class='bx bx-bowl-rice'></i> Ăn uống</button>
+            <button class="tab-btn" data-target="workout"><i class='bx bx-run'></i> Thể thao</button>
+        </nav>
+
+        <main>
+            <!-- 1. GIẤC NGỦ -->
+            <section id="sleep" class="tab-content active glass">
+                <h2>Theo dõi chu kỳ ngủ 🌙</h2>
+                <div class="input-group">
+                    <label>Giờ bắt đầu ngủ:</label>
+                    <input type="time" id="sleep-time">
+                </div>
+                <div class="input-group">
+                    <label>Giờ báo thức (dự kiến):</label>
+                    <input type="time" id="wake-time">
+                </div>
+                <button id="btn-calc-sleep" class="btn-primary">Tính toán chu kỳ</button>
+                <div id="sleep-result" class="result-box"></div>
+            </section>
+
+            <!-- 2. UỐNG NƯỚC -->
+            <section id="water" class="tab-content glass">
+                <h2>Mục tiêu nước hôm nay 💧</h2>
+                <div class="water-tracker">
+                    <div class="progress-circle" id="water-circle">
+                        <div class="progress-text">
+                            <span id="water-current">0</span> / <span id="water-target">2000</span> ml
+                        </div>
+                    </div>
+                </div>
+                <div class="water-buttons">
+                    <button class="btn-secondary" onclick="addWater(250)">+ Cốc 250ml</button>
+                    <button class="btn-secondary" onclick="addWater(500)">+ Bình 500ml</button>
+                </div>
+                <p id="water-suggest" class="suggestion">Hãy uống từng ngụm nhỏ nhé!</p>
+            </section>
+
+            <!-- 3. ĂN UỐNG -->
+            <section id="food" class="tab-content glass">
+                <h2>Tính lượng Calo 🍏</h2>
+                <div class="input-group">
+                    <input type="text" id="food-input" placeholder="Ví dụ: 1 bát phở bò, 1 quả táo...">
+                    <button id="btn-add-food" class="btn-primary">Thêm</button>
+                </div>
+                <div class="food-summary">
+                    <p>Tổng Calo nạp vào: <strong id="total-calo">0</strong> kcal</p>
+                </div>
+                <ul id="food-list" class="checklist"></ul>
+                <p class="note">(*Tính năng tra cứu tự động sẽ cần API ở bản cập nhật sau)</p>
+            </section>
+
+            <!-- 4. THỂ THAO -->
+            <section id="workout" class="tab-content glass">
+                <h2>Thành tựu tập luyện 🏃</h2>
+                <div class="input-group">
+                    <input type="text" id="workout-input" placeholder="Ví dụ: Chạy bộ 30 phút...">
+                    <button id="btn-add-workout" class="btn-primary">Thêm</button>
+                </div>
+                <ul id="workout-list" class="checklist"></ul>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
