@@ -1,5 +1,5 @@
 /* =========================================
-   1. UTILS & FULL DYNAMIC CALENDAR
+   1. UTILS & DYNAMIC CALENDAR (WITH MONTH)
    ========================================= */
 function showToast(message) {
     const container = document.getElementById('toast-container');
@@ -30,14 +30,13 @@ window.toggleDarkMode = function() {
     document.body.classList.toggle('dark-mode');
 };
 
-// Quản lý Ngày đang chọn & Tuần đang xem trên Lịch
+// Quản lý Ngày chọn & Tuần xem
 let selectedDate = new Date().toISOString().split('T')[0];
-let currentWeekOffset = 0; // 0 = Tuần hiện tại, -1 = Tuần trước, +1 = Tuần sau
+let currentWeekOffset = 0;
 
 function getWeekDays(offset = 0) {
     let days = [];
     let today = new Date();
-    // Dịch chuyển theo tuần
     today.setDate(today.getDate() + (offset * 7));
     
     for (let i = 6; i >= 0; i--) {
@@ -46,7 +45,8 @@ function getWeekDays(offset = 0) {
         days.push({
             full: d.toISOString().split('T')[0],
             dayName: d.toLocaleDateString('vi-VN', { weekday: 'short' }),
-            dateNum: d.getDate()
+            dateNum: d.getDate().toString().padStart(2, '0'),
+            monthNum: (d.getMonth() + 1).toString().padStart(2, '0') // Thêm hiển thị Tháng
         });
     }
     return days;
@@ -100,6 +100,7 @@ function renderDateBars() {
                         <button type="button" class="date-btn ${d.full === selectedDate ? 'active' : ''}" onclick="selectDate('${d.full}')">
                             <span>${d.dayName}</span>
                             <strong>${d.dateNum}</strong>
+                            <div class="date-month">Th${d.monthNum}</div>
                             <div class="streak-icon">${icon}</div>
                         </button>
                     `;
@@ -417,48 +418,136 @@ function updateWaterUI() {
 }
 
 /* =========================================
-   6. ĂN UỐNG
+   6. ĂN UỐNG & BỘ NÃO GEMINI AI THẬT
    ========================================= */
+// ⬇️ GEMINI API KEY CỦA BÀ ĐÃ ĐƯỢC TÍCH HỢP CHUẨN ĐÉT ⬇️
+const GEMINI_API_KEY = "AIzaSyBuceM7Qc0Jjhmm3orIo5p2G9ubM886FkU";
+
 let foodLogs = JSON.parse(localStorage.getItem('helnai_food_logs')) || {};
+let customFoodDatabase = JSON.parse(localStorage.getItem('helnai_custom_foods')) || {};
 
-function estimateNutrition(name) {
-    let lowerName = name.toLowerCase().trim();
-    let cal = 120, p = 3, c = 15, f = 3, fb = 1;
+async function fetchNutritionFromGemini(foodQuery) {
+    let lowerName = foodQuery.toLowerCase().trim();
 
-    if (lowerName.includes('matcha') || lowerName.includes('trà sữa') || lowerName.includes('nước ngọt')) {
-        cal = 260; c = 42; f = 8; p = 3; fb = 0;
-        if (lowerName.includes('700ml') || lowerName.includes('lớn')) { cal = 420; c = 68; f = 12; p = 5; }
-    } else if (lowerName.includes('lê') || lowerName.includes('táo') || lowerName.includes('chuối') || lowerName.includes('trái') || lowerName.includes('quả')) {
-        cal = 60; c = 15; f = 0.2; p = 0.5; fb = 3.5;
-        if (lowerName.includes('nửa') || lowerName.includes('1/2')) { cal = 35; c = 8; fb = 1.8; }
-    } else if (lowerName.includes('sữa chua') || lowerName.includes('yogurt')) {
-        cal = 95; c = 12; f = 3; p = 3.5; fb = 0;
-        if (lowerName.includes('có đường')) { cal = 125; c = 19; }
-    } else if (lowerName.includes('bò') || lowerName.includes('gà') || lowerName.includes('thịt') || lowerName.includes('trứng')) {
-        cal = 280; p = 26; c = 2; f = 16; fb = 0;
-    } else if (lowerName.includes('cơm') || lowerName.includes('phở') || lowerName.includes('bún') || lowerName.includes('mì')) {
-        cal = 450; p = 16; c = 65; f = 11; fb = 2;
-    } else if (lowerName.includes('rau') || lowerName.includes('salad')) {
-        cal = 50; p = 2; c = 8; f = 1; fb = 4.5;
+    if (customFoodDatabase[lowerName]) {
+        return customFoodDatabase[lowerName];
     }
 
-    let offset = Math.floor(Math.random() * 8) - 4;
-    return { cal: Math.max(15, cal + offset), p: Math.round(p), c: Math.round(c), f: Math.round(f), fb: Math.round(fb * 10) / 10 };
+    if (GEMINI_API_KEY) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        
+        const promptText = `
+        Bạn là chuyên gia dinh dưỡng. Hãy ước lượng giá trị dinh dưỡng cho món ăn: "${foodQuery}".
+        Chỉ trả về duy nhất 1 chuỗi JSON (không chứa mã markdown, không chứa chữ khác) theo định dạng đúng sau:
+        {"cal": số_calo, "p": số_g_đạm, "c": số_g_tinh_bột, "f": số_g_béo, "fb": số_g_xơ}
+        Ví dụ: {"cal": 140, "p": 12, "c": 1, "f": 10, "fb": 0}
+        `;
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }]
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const aiResponseText = data.candidates[0].content.parts[0].text.trim();
+                
+                const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    const parsedData = JSON.parse(jsonMatch[0]);
+                    return {
+                        cal: Math.round(parsedData.cal || 0),
+                        p: Math.round(parsedData.p || 0),
+                        c: Math.round(parsedData.c || 0),
+                        f: Math.round(parsedData.f || 0),
+                        fb: Math.round((parsedData.fb || 0) * 10) / 10
+                    };
+                }
+            }
+        } catch (error) {
+            console.error("Gemini API Error, fallback to local estimate:", error);
+        }
+    }
+
+    return fallbackEstimateNutrition(lowerName);
 }
 
-window.addFood = function() {
-    const name = document.getElementById('food-input').value;
+function fallbackEstimateNutrition(lowerName) {
+    let cal = 150, p = 5, c = 20, f = 5, fb = 2;
+    let matchNum = lowerName.match(/^(\d+[\.,]?\d*)/);
+    let count = matchNum ? parseFloat(matchNum[1].replace(',', '.')) : 1;
+
+    if (lowerName.includes('trứng')) {
+        cal = count * 72; p = count * 6; c = count * 0.5; f = count * 5; fb = 0;
+    } else if (lowerName.includes('phở') || lowerName.includes('bún bò')) {
+        cal = 480; p = 22; c = 60; f = 14; fb = 3;
+    } else if (lowerName.includes('bánh mì')) {
+        cal = 350; p = 12; c = 40; f = 15; fb = 2;
+    } else if (lowerName.includes('cơm')) {
+        cal = count * 200; p = count * 4; c = count * 44; f = count * 1; fb = count * 1;
+    }
+
+    return { cal: Math.round(cal), p: Math.round(p), c: Math.round(c), f: Math.round(f), fb: Math.round(fb * 10) / 10 };
+}
+
+window.addFood = async function() {
+    const nameInput = document.getElementById('food-input');
+    const name = nameInput.value;
     if (!name.trim()) { showToast("Nhập tên món ăn nha!"); return; }
 
-    if (!foodLogs[selectedDate]) foodLogs[selectedDate] = [];
-    let nut = estimateNutrition(name);
-    foodLogs[selectedDate].unshift({ id: Date.now(), name: name, cal: nut.cal, p: nut.p, c: nut.c, f: nut.f, fb: nut.fb });
+    showToast("🧠 Gemini AI đang phân tích dinh dưỡng...");
 
+    if (!foodLogs[selectedDate]) foodLogs[selectedDate] = [];
+    let nut = await fetchNutritionFromGemini(name);
+
+    let newFoodItem = { 
+        id: Date.now(), 
+        name: name, 
+        cal: nut.cal, 
+        p: nut.p, 
+        c: nut.c, 
+        f: nut.f, 
+        fb: nut.fb 
+    };
+
+    foodLogs[selectedDate].unshift(newFoodItem);
     localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
-    document.getElementById('food-input').value = "";
+    nameInput.value = "";
     updateFoodUI();
     renderDateBars();
-    showToast(`Đã ghi nhận ${name}!`);
+    showToast(`Gemini đã phân tích: ${name} (~${nut.cal} kcal)!`);
+};
+
+window.editFoodCalories = function(id, foodName) {
+    let currentLogs = foodLogs[selectedDate] || [];
+    let item = currentLogs.find(l => l.id === id);
+    if (!item) return;
+
+    let newCalStr = prompt(`Nhập lại số Calo chuẩn thực tế cho món "${foodName}":`, item.cal);
+    if (newCalStr === null) return;
+    let newCal = parseInt(newCalStr);
+
+    if (isNaN(newCal) || newCal < 0) {
+        showToast("Số calo không hợp lệ!");
+        return;
+    }
+
+    item.cal = newCal;
+    item.p = Math.round(newCal * 0.15 / 4);
+    item.c = Math.round(newCal * 0.5 / 4);
+    item.f = Math.round(newCal * 0.35 / 9);
+
+    localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
+
+    customFoodDatabase[foodName.toLowerCase().trim()] = { cal: item.cal, p: item.p, c: item.c, f: item.f, fb: item.fb };
+    localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
+
+    updateFoodUI();
+    showToast("Đã cập nhật số calo mới! 🌸");
 };
 
 window.deleteFood = function(id) {
@@ -510,9 +599,9 @@ function updateFoodUI() {
     document.getElementById('food-advice').innerText = advice || "Dinh dưỡng khá cân bằng!";
 
     document.getElementById('food-list').innerHTML = logs.map(log => `
-        <li class="history-item">
-            <div class="history-item-info">
-                <strong>${log.name} (${log.cal} kcal)</strong>
+        <li class="history-item" style="cursor: pointer;" title="Bấm vào để sửa số Calo">
+            <div class="history-item-info" onclick="editFoodCalories(${log.id}, '${log.name}')">
+                <strong>${log.name} (${log.cal} kcal) ✏️</strong>
                 <span style="font-size:12px; color:var(--text-sub)">Đ: ${log.p}g | B: ${log.c}g | Béo: ${log.f}g | Xơ: ${log.fb}g</span>
             </div>
             <button type="button" class="btn-delete" onclick="deleteFood(${log.id})">Xóa</button>
