@@ -636,15 +636,34 @@ window.addFood = async function() {
     } else {
         // 4. Nếu không tìm thấy, hiện Modal nhập calo thủ công
         createCustomModal(
-            "Tự nhập Calo ✍️",
+            "Tự nhập dinh dưỡng ✍️",
             `
             <p style="margin-bottom: 12px; color: var(--text-sub); line-height: 1.4;">
-                Hệ thống chưa có dữ liệu của món <b>"${rawName}"</b>. Vui lòng tự nhập chỉ số calo ước tính cho <b>1 đơn vị/100g</b> (hệ thống sẽ tự nhân với số lượng bạn chọn):
+                Hệ thống chưa có dữ liệu của món <b>"${rawName}"</b>. Vui lòng nhập chỉ số cho <b>1 đơn vị/100g</b> (hệ thống sẽ tự nhân với số lượng bạn chọn):
             </p>
-            <div class="input-group">
-                <label style="font-weight: 700;">Lượng Calo (cho 1 đơn vị hoặc 100g):</label>
-                <input type="number" id="hd-input-calo" placeholder="VD: 150" style="margin-top: 5px;" min="0">
+            <div class="input-group" style="margin-bottom:10px;">
+                <label style="font-weight: 700;">Calo (kcal):</label>
+                <input type="number" id="hd-input-calo" placeholder="VD: 150" style="margin-top: 5px; width:100%;" min="0">
             </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div class="input-group">
+                    <label style="font-weight: 700;">Đạm (g):</label>
+                    <input type="number" id="hd-input-p" placeholder="0" style="margin-top: 5px; width:100%;" min="0">
+                </div>
+                <div class="input-group">
+                    <label style="font-weight: 700;">Tinh bột (g):</label>
+                    <input type="number" id="hd-input-c" placeholder="0" style="margin-top: 5px; width:100%;" min="0">
+                </div>
+                <div class="input-group">
+                    <label style="font-weight: 700;">Béo (g):</label>
+                    <input type="number" id="hd-input-f" placeholder="0" style="margin-top: 5px; width:100%;" min="0">
+                </div>
+                <div class="input-group">
+                    <label style="font-weight: 700;">Xơ (g):</label>
+                    <input type="number" id="hd-input-fb" placeholder="0" style="margin-top: 5px; width:100%;" min="0">
+                </div>
+            </div>
+            <p style="font-size:12px; color:var(--text-sub); margin-top:8px;">*Để trống nếu không rõ, hệ thống sẽ tính 0.</p>
             `,
             "Thêm món",
             (modalElement, closeModal) => {
@@ -656,10 +675,10 @@ window.addFood = async function() {
 
                 let baseNut = {
                     cal: calVal,
-                    p: Math.round(calVal * 0.15 / 4),
-                    c: Math.round(calVal * 0.5 / 4),
-                    f: Math.round(calVal * 0.35 / 9),
-                    fb: 0
+                    p: parseFloat(document.getElementById('hd-input-p').value) || 0,
+                    c: parseFloat(document.getElementById('hd-input-c').value) || 0,
+                    f: parseFloat(document.getElementById('hd-input-f').value) || 0,
+                    fb: parseFloat(document.getElementById('hd-input-fb').value) || 0
                 };
 
                 // Lưu lại món ăn tự định nghĩa này vào bộ nhớ (theo tên đã chuẩn hóa)
@@ -683,14 +702,32 @@ window.editFoodCalories = function(id, foodName) {
     if (!item) return;
 
     createCustomModal(
-        "Sửa lượng Calo ✏️",
+        "Sửa dinh dưỡng ✏️",
         `
         <p style="margin-bottom: 12px; color: var(--text-sub); line-height: 1.4;">
-            Nhập lượng Calo chuẩn mong muốn cho món <b>"${foodName}"</b> (chỉ áp dụng cho lần ghi này):
+            Sửa chỉ số dinh dưỡng cho món <b>"${foodName}"</b> (chỉ áp dụng cho lần ghi này):
         </p>
-        <div class="input-group">
-            <label style="font-weight: 700;">Lượng Calo mới (kcal):</label>
-            <input type="number" id="hd-edit-calo" value="${item.cal}" style="margin-top: 5px;" min="0">
+        <div class="input-group" style="margin-bottom:10px;">
+            <label style="font-weight: 700;">Calo (kcal):</label>
+            <input type="number" id="hd-edit-calo" value="${item.cal}" style="margin-top: 5px; width:100%;" min="0">
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div class="input-group">
+                <label style="font-weight: 700;">Đạm (g):</label>
+                <input type="number" id="hd-edit-p" value="${item.p}" style="margin-top: 5px; width:100%;" min="0">
+            </div>
+            <div class="input-group">
+                <label style="font-weight: 700;">Tinh bột (g):</label>
+                <input type="number" id="hd-edit-c" value="${item.c}" style="margin-top: 5px; width:100%;" min="0">
+            </div>
+            <div class="input-group">
+                <label style="font-weight: 700;">Béo (g):</label>
+                <input type="number" id="hd-edit-f" value="${item.f}" style="margin-top: 5px; width:100%;" min="0">
+            </div>
+            <div class="input-group">
+                <label style="font-weight: 700;">Xơ (g):</label>
+                <input type="number" id="hd-edit-fb" value="${item.fb}" style="margin-top: 5px; width:100%;" min="0">
+            </div>
         </div>
         `,
         "Cập nhật",
@@ -702,14 +739,15 @@ window.editFoodCalories = function(id, foodName) {
             }
 
             item.cal = newCal;
-            item.p = Math.round(newCal * 0.15 / 4);
-            item.c = Math.round(newCal * 0.5 / 4);
-            item.f = Math.round(newCal * 0.35 / 9);
+            item.p = parseFloat(document.getElementById('hd-edit-p').value) || 0;
+            item.c = parseFloat(document.getElementById('hd-edit-c').value) || 0;
+            item.f = parseFloat(document.getElementById('hd-edit-f').value) || 0;
+            item.fb = parseFloat(document.getElementById('hd-edit-fb').value) || 0;
 
             localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
 
             updateFoodUI();
-            showToast("Đã lưu số Calo mới cho lần ghi này!");
+            showToast("Đã lưu thông tin dinh dưỡng mới!");
             closeModal();
         }
     );
@@ -763,13 +801,31 @@ window.editCustomFoodEntry = function(key) {
     createCustomModal(
         "Sửa món ăn ✏️",
         `
-        <div class="input-group">
+        <div class="input-group" style="margin-bottom:10px;">
             <label style="font-weight: 700;">Tên món</label>
-            <input type="text" id="hd-edit-name" value="${key}" style="margin: 5px 0 12px; width:100%;">
+            <input type="text" id="hd-edit-name" value="${key}" style="margin: 5px 0; width:100%;">
         </div>
-        <div class="input-group">
+        <div class="input-group" style="margin-bottom:10px;">
             <label style="font-weight: 700;">Calo (cho 1 đơn vị hoặc 100g)</label>
             <input type="number" id="hd-edit-db-calo" value="${f.cal}" min="0" style="width:100%;">
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div class="input-group">
+                <label style="font-weight: 700;">Đạm (g):</label>
+                <input type="number" id="hd-edit-db-p" value="${f.p}" style="width:100%;" min="0">
+            </div>
+            <div class="input-group">
+                <label style="font-weight: 700;">Tinh bột (g):</label>
+                <input type="number" id="hd-edit-db-c" value="${f.c}" style="width:100%;" min="0">
+            </div>
+            <div class="input-group">
+                <label style="font-weight: 700;">Béo (g):</label>
+                <input type="number" id="hd-edit-db-f" value="${f.f}" style="width:100%;" min="0">
+            </div>
+            <div class="input-group">
+                <label style="font-weight: 700;">Xơ (g):</label>
+                <input type="number" id="hd-edit-db-fb" value="${f.fb || 0}" style="width:100%;" min="0">
+            </div>
         </div>
         `,
         "Lưu",
@@ -785,10 +841,10 @@ window.editCustomFoodEntry = function(key) {
 
             customFoodDatabase[newName] = {
                 cal: newCal,
-                p: Math.round(newCal * 0.15 / 4),
-                c: Math.round(newCal * 0.5 / 4),
-                f: Math.round(newCal * 0.35 / 9),
-                fb: f.fb || 0
+                p: parseFloat(document.getElementById('hd-edit-db-p').value) || 0,
+                c: parseFloat(document.getElementById('hd-edit-db-c').value) || 0,
+                f: parseFloat(document.getElementById('hd-edit-db-f').value) || 0,
+                fb: parseFloat(document.getElementById('hd-edit-db-fb').value) || 0
             };
             localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
 
