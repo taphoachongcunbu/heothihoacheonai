@@ -450,62 +450,76 @@ function updateWaterUI() {
 }
 
 /* =========================================
-   7. ĂN UỐNG & BỘ NÃO GEMINI AI THẬT
+   7. ĂN UỐNG & BỘ NÃO GEMINI AI CHUẨN STRUCTURED OUTPUT
    ========================================= */
 const GEMINI_API_KEY = "AIzaSyBuceM7Qc0Jjhmm3orIo5p2G9ubM886FkU";
 
 async function fetchNutritionFromGemini(foodQuery) {
     let lowerName = foodQuery.toLowerCase().trim();
 
+    // 1. Kiểm tra bộ nhớ cá nhân nếu món này đã từng sửa thủ công
     if (customFoodDatabase[lowerName]) {
         return customFoodDatabase[lowerName];
     }
 
+    // 2. Gọi Gemini API với Structured JSON Output
     if (GEMINI_API_KEY) {
-        const url = `[https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$){GEMINI_API_KEY}`;
-        const promptText = `Bạn là chuyên gia dinh dưỡng Việt Nam. Hãy tính toán dinh dưỡng thực tế cho món ăn: "${foodQuery}".
-Chỉ trả về DUY NHẤT một chuỗi JSON (Không thêm bất kỳ ký tự nào khác) theo đúng định dạng này:
-{"cal": số_kcal, "p": số_g_đạm, "c": số_g_tinh_bột, "f": số_g_chất_béo, "fb": số_g_chất_xơ}`;
+        const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY;
+
+        const requestBody = {
+            contents: [{
+                parts: [{ text: `Phân tích và tính toán dinh dưỡng thực tế cho món ăn: "${foodQuery}".` }]
+            }],
+            systemInstruction: {
+                parts: [{ text: "Bạn là chuyên gia dinh dưỡng Việt Nam. Hãy phân tích lượng calo, protein (đạm), carbs (tinh bột), fat (chất béo), fiber (chất xơ) cho món ăn được yêu cầu." }]
+            },
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                        cal: { type: "INTEGER", description: "Tổng số calo (kcal)" },
+                        p: { type: "INTEGER", description: "Số gam đạm/protein" },
+                        c: { type: "INTEGER", description: "Số gam tinh bột/carbs" },
+                        f: { type: "INTEGER", description: "Số gam chất béo/fat" },
+                        fb: { type: "NUMBER", description: "Số gam chất xơ/fiber" }
+                    },
+                    required: ["cal", "p", "c", "f", "fb"]
+                }
+            }
+        };
 
         try {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: promptText }] }]
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (response.ok) {
                 const data = await response.json();
-                let rawText = data.candidates[0].content.parts[0].text.trim();
-                
-                // Mẹo cực kỳ an toàn để làm sạch markdown mà không dùng dấu gạch trực tiếp
-                const mdBlock = String.fromCharCode(96, 96, 96);
-                rawText = rawText.replace(new RegExp(mdBlock + 'json', 'gi'), '')
-                                 .replace(new RegExp(mdBlock, 'g'), '')
-                                 .trim();
-                
-                const parsedData = JSON.parse(rawText);
+                const jsonText = data.candidates[0].content.parts[0].text;
+                const parsed = JSON.parse(jsonText);
+
                 return {
-                    cal: Math.round(parsedData.cal || 0),
-                    p: Math.round(parsedData.p || 0),
-                    c: Math.round(parsedData.c || 0),
-                    f: Math.round(parsedData.f || 0),
-                    fb: Math.round((parsedData.fb || 0) * 10) / 10
+                    cal: Math.round(parsed.cal || 0),
+                    p: Math.round(parsed.p || 0),
+                    c: Math.round(parsed.c || 0),
+                    f: Math.round(parsed.f || 0),
+                    fb: Math.round((parsed.fb || 0) * 10) / 10
                 };
             } else {
                 console.error("Lỗi Gemini API:", response.status);
+                showToast(`Gemini API báo lỗi (${response.status})!`);
             }
         } catch (error) {
-            console.error("Lỗi parse JSON:", error);
+            console.error("Lỗi gọi AI:", error);
+            showToast("Không thể kết nối tới Gemini AI!");
         }
     }
 
-    // Dự phòng an toàn
-    let cal = 200, p = 5, c = 25, f = 5, fb = 1;
-    if (lowerName.includes('matcha')) { cal = 450; p = 6; c = 65; f = 14; fb = 0; }
-    return { cal, p, c, f, fb };
+    // Dự phòng an toàn nếu mất mạng
+    return { cal: 150, p: 5, c: 20, f: 5, fb: 1 };
 }
 
 window.addFood = async function() {
@@ -533,7 +547,7 @@ window.addFood = async function() {
     nameInput.value = "";
     updateFoodUI();
     renderDateBars();
-    showToast(`Gemini AI đã thêm: ${name} (~${nut.cal} kcal)!`);
+    showToast(`Gemini đã phân tích: ${name} (~${nut.cal} kcal)!`);
 };
 
 window.editFoodCalories = function(id, foodName) {
