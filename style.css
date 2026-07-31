@@ -47,7 +47,7 @@ body { background-color: var(--bg-color); color: var(--text-color); min-height: 
 .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Thanh Lịch Động Hiện Ngày & Tháng */
+/* Thanh Lịch Động */
 .date-selector-wrapper { display: flex; align-items: center; gap: 8px; margin-bottom: 25px; width: 100%; }
 .date-selector-bar { display: flex; gap: 8px; overflow-x: auto; flex: 1; scrollbar-width: none; padding-bottom: 4px; }
 .date-selector-bar::-webkit-scrollbar { display: none; }
@@ -63,7 +63,7 @@ body { background-color: var(--bg-color); color: var(--text-color); min-height: 
 .cal-nav-btn { background: var(--primary-light); color: var(--primary); padding: 8px 12px; border-radius: 12px; font-weight: bold; font-size: 14px; flex-shrink: 0; }
 .cal-today-btn { background: var(--primary); color: white; padding: 8px 14px; border-radius: 12px; font-size: 13px; flex-shrink: 0; }
 
-/* Layout Grid */
+/* Grid Layout */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
 .stat-card { padding: 20px; display: flex; align-items: center; gap: 15px; }
 .stat-card .icon { font-size: 32px; color: var(--primary); background: var(--primary-light); padding: 12px; border-radius: 16px; }
@@ -114,7 +114,7 @@ button { cursor: pointer; border-radius: 12px; font-weight: 700; transition: 0.2
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
-/* Mobile Responsive */
+/* Responsive Mobile */
 @media (max-width: 768px) {
     .dashboard-container { flex-direction: column; }
     
