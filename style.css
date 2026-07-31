@@ -200,3 +200,49 @@ button { cursor: pointer; border-radius: 12px; font-weight: 700; transition: 0.2
 #food .panel.glass {
     align-self: start;
 }
+/* Nút chế độ tập luyện: hiện rõ đang chọn cái nào */
+.workout-mode-buttons button.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+.workout-mode-buttons button {
+    transition: all 0.2s ease;
+}
+.workout-mode-buttons button:hover {
+    filter: brightness(1.05);
+}
+
+/* Item bài tập đã hoàn thành - nổi bật nhẹ */
+.workout-done {
+    background: rgba(139, 92, 246, 0.06);
+    border-radius: 10px;
+}
+
+/* Chip gợi ý bài tập nhanh */
+.chip-btn {
+    background: var(--border);
+    border: none;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.chip-btn:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
+/* Báo cáo ngày ở tab Tổng quan */
+.report-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+}
+.report-row:last-child {
+    border-bottom: none;
+}
