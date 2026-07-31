@@ -1,5 +1,5 @@
 /* =========================================
-   1. UTILS & DYNAMIC CALENDAR
+   1. UTILS & FULL DYNAMIC CALENDAR
    ========================================= */
 function showToast(message) {
     const container = document.getElementById('toast-container');
@@ -30,14 +30,18 @@ window.toggleDarkMode = function() {
     document.body.classList.toggle('dark-mode');
 };
 
-// Lấy ngày hôm nay làm mặc định (YYYY-MM-DD)
+// Quản lý Ngày đang chọn & Tuần đang xem trên Lịch
 let selectedDate = new Date().toISOString().split('T')[0];
+let currentWeekOffset = 0; // 0 = Tuần hiện tại, -1 = Tuần trước, +1 = Tuần sau
 
-// Tự động tính 7 ngày gần nhất dựa trên thời gian thực hệ thống
-function getRecent7Days() {
+function getWeekDays(offset = 0) {
     let days = [];
+    let today = new Date();
+    // Dịch chuyển theo tuần
+    today.setDate(today.getDate() + (offset * 7));
+    
     for (let i = 6; i >= 0; i--) {
-        let d = new Date();
+        let d = new Date(today);
         d.setDate(d.getDate() - i);
         days.push({
             full: d.toISOString().split('T')[0],
@@ -80,24 +84,47 @@ function getStreakIconForDate(module, dateStr) {
 }
 
 function renderDateBars() {
-    const days = getRecent7Days();
+    const days = getWeekDays(currentWeekOffset);
     const modules = ['sleep', 'water', 'food', 'workout'];
     
     modules.forEach(mod => {
-        const bar = document.getElementById(`${mod}-date-bar`);
-        if (!bar) return;
-        bar.innerHTML = days.map(d => {
-            let icon = getStreakIconForDate(mod, d.full);
-            return `
-                <button type="button" class="date-btn ${d.full === selectedDate ? 'active' : ''}" onclick="selectDate('${d.full}')">
-                    <span>${d.dayName}</span>
-                    <strong>${d.dateNum}</strong>
-                    <div class="streak-icon">${icon}</div>
-                </button>
-            `;
-        }).join('');
+        const wrapper = document.getElementById(`${mod}-date-bar`);
+        if (!wrapper) return;
+        
+        wrapper.innerHTML = `
+            <button type="button" class="cal-nav-btn" onclick="changeWeek(-1)" title="Tuần trước">❮</button>
+            <div class="date-selector-bar">
+                ${days.map(d => {
+                    let icon = getStreakIconForDate(mod, d.full);
+                    return `
+                        <button type="button" class="date-btn ${d.full === selectedDate ? 'active' : ''}" onclick="selectDate('${d.full}')">
+                            <span>${d.dayName}</span>
+                            <strong>${d.dateNum}</strong>
+                            <div class="streak-icon">${icon}</div>
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+            <button type="button" class="cal-nav-btn" onclick="changeWeek(1)" title="Tuần sau">❯</button>
+            <button type="button" class="cal-today-btn" onclick="goToToday()">Hôm nay</button>
+        `;
     });
 }
+
+window.changeWeek = function(direction) {
+    currentWeekOffset += direction;
+    renderDateBars();
+};
+
+window.goToToday = function() {
+    currentWeekOffset = 0;
+    selectedDate = new Date().toISOString().split('T')[0];
+    renderDateBars();
+    renderSleep();
+    updateWaterUI();
+    updateFoodUI();
+    renderWorkout();
+};
 
 window.selectDate = function(dateStr) {
     selectedDate = dateStr;
@@ -132,11 +159,11 @@ try {
             const authStatusEl = document.getElementById('auth-status');
             if (user) {
                 authStatusEl.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                        <img src="${user.photoURL}" style="width: 32px; height: 32px; border-radius: 50%;">
-                        <span style="font-weight: 700; font-size: 14px;">${user.displayName}</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <img src="${user.photoURL}" style="width: 28px; height: 28px; border-radius: 50%;">
+                        <span style="font-weight: 700; font-size: 13px;">${user.displayName}</span>
                     </div>
-                    <button type="button" onclick="logoutGoogle()" class="btn-secondary" style="width: 100%; padding: 6px;">Đăng xuất</button>
+                    <button type="button" onclick="logoutGoogle()" class="btn-secondary" style="padding: 4px 8px; font-size:12px;">Đăng xuất</button>
                 `;
             } else {
                 authStatusEl.innerHTML = `<button type="button" onclick="loginGoogle()" class="btn-secondary" style="width: 100%;"><i class='bx bxl-google'></i> Đăng nhập</button>`;
@@ -220,12 +247,11 @@ function calculateAndDisplayStats() {
 }
 
 /* =========================================
-   4. GIẤC NGỦ & TÍNH TOÁN CẢM GIÁC MỆT MỎI
+   4. GIẤC NGỦ & TÍNH CHU KỲ (REM/MỆT)
    ========================================= */
 let sleepLogs = JSON.parse(localStorage.getItem('helnai_sleep_logs')) || {};
 let lastSleepResult = null;
 
-// Hàm hỗ trợ format HH:MM
 function formatTime(dateObj) {
     let hours = dateObj.getHours().toString().padStart(2, '0');
     let minutes = dateObj.getMinutes().toString().padStart(2, '0');
@@ -246,20 +272,16 @@ window.calculateSleep = function() {
     let wDate = new Date(2000, 0, (wH < sH || (wH === sH && wM <= sM) ? 2 : 1), wH, wM);
     let diffMinutes = (wDate - sDate) / 60000;
     
-    // Tính số chu kỳ (mỗi chu kỳ = 90p)
-    let rawCycles = diffMinutes / 90;
-    let cycles = rawCycles.toFixed(1);
-    
-    // Đánh giá thức dậy có mệt không (xem có sát chu kỳ 90p không)
+    let cycles = (diffMinutes / 90).toFixed(1);
     let cycleRemainder = diffMinutes % 90;
     let fatigueAnalysis = "";
+    
     if (cycleRemainder <= 15 || cycleRemainder >= 75) {
         fatigueAnalysis = "🟢 <b>Tỉnh táo!</b> Bạn thức dậy đúng giao điểm giữa các chu kỳ (ngủ nông). Cơ thể sẽ sảng khoái, không mệt mỏi.";
     } else {
         fatigueAnalysis = "🔴 <b>Dễ bị mệt mỏi!</b> Giờ báo thức này cắt ngang chu kỳ ngủ sâu (Non-REM/REM). Bạn có thể thấy lờ đờ, đau đầu khi dậy.";
     }
 
-    // Gợi ý giờ nên ngủ nếu giữ nguyên giờ thức đó
     let suggestedBedTimes = [];
     [6, 5, 4].forEach(cNum => {
         let suggestedDate = new Date(wDate.getTime() - (cNum * 90 * 60000));
@@ -277,10 +299,10 @@ window.calculateSleep = function() {
     };
 
     document.getElementById('sleep-result').innerHTML = `
-        <p>Tổng thời gian: <b>${lastSleepResult.duration}</b> (${cycles} chu kỳ)</p>
+        <p>Thời gian ngủ: <b>${lastSleepResult.duration}</b> (${cycles} chu kỳ)</p>
         <p>${fatigueAnalysis}</p>
-        <p style="margin-top:8px;">💡 <b>Gợi ý:</b> Nếu thức lúc <b>${wTime}</b>, bạn nên đi ngủ vào các khung giờ: <b>${suggestedBedTimes.join(' | ')}</b> để tỉnh táo nhất.</p>
-        <p style="margin-top:5px;">Streak ngủ sớm: ${isStreak ? "🔥 Đạt Streak ngủ sớm!" : "😴 Chưa đạt giờ mục tiêu"}</p>
+        <p style="margin-top:8px;">💡 <b>Gợi ý:</b> Để dậy lúc <b>${wTime}</b> không mệt, nên ngủ lúc: <b>${suggestedBedTimes.join(' | ')}</b></p>
+        <p style="margin-top:5px;">Streak ngủ sớm: ${isStreak ? "🔥 Đạt Streak!" : "😴 Chưa đạt giờ mục tiêu"}</p>
     `;
     document.getElementById('btn-log-sleep').style.display = 'block';
 };
@@ -291,7 +313,7 @@ window.saveSleepLog = function() {
         localStorage.setItem('helnai_sleep_logs', JSON.stringify(sleepLogs));
         renderSleep();
         renderDateBars();
-        showToast("Đã lưu nhật ký giấc ngủ!");
+        showToast("Đã lưu giấc ngủ cho ngày " + selectedDate);
         document.getElementById('btn-log-sleep').style.display = 'none';
     }
 };
