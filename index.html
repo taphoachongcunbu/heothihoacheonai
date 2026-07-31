@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Healthy hoặc Hel nái</title>
+    <title>Healthy hoặc hel nái - Dashboard Sức Khỏe</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
@@ -13,11 +13,14 @@
 </head>
 <body>
 
-    <!-- MODAL NHẬP THÔNG TIN BAN ĐẦU (ONBOARDING / SETTINGS) -->
+    <!-- Toast Notification (Thay thế cho Alert) -->
+    <div id="toast-container"></div>
+
+    <!-- MODAL NHẬP THÔNG TIN BAN ĐẦU -->
     <div id="user-modal" class="modal active">
         <div class="modal-content glass">
-            <h2>Hồ Sơ Sức Khỏe 🌸</h2>
-            <p class="subtitle">Nhập thông tin để hệ thống tính toán chỉ số BMR, TDEE chính xác cho bạn.</p>
+            <h2>Hồ Sơ Sức Khỏe - Healthy 🌸</h2>
+            <p class="subtitle">Nhập thông tin để hệ thống tính toán chỉ số chính xác cho bạn.</p>
             
             <form id="health-form">
                 <div class="form-grid">
@@ -66,12 +69,10 @@
     <!-- MAIN DASHBOARD LAYOUT -->
     <div class="dashboard-container">
         
-        <!-- SIDEBAR BAN BÊN TRÁI -->
         <aside class="sidebar glass">
             <div class="logo">
-                <h2>Aura Health 💜</h2>
+                <h2>Healthy 💜</h2>
             </div>
-
             <nav class="nav-menu">
                 <button class="nav-btn active" data-target="overview"><i class='bx bx-grid-alt'></i> Tổng quan</button>
                 <button class="nav-btn" data-target="sleep"><i class='bx bx-moon'></i> Giấc ngủ</button>
@@ -79,7 +80,6 @@
                 <button class="nav-btn" data-target="food"><i class='bx bx-bowl-rice'></i> Ăn uống</button>
                 <button class="nav-btn" data-target="workout"><i class='bx bx-run'></i> Thể thao</button>
             </nav>
-
             <div class="sidebar-bottom">
                 <div id="auth-status" class="auth-box">
                     <button id="btn-login" class="btn-secondary"><i class='bx bxl-google'></i> Đăng nhập</button>
@@ -91,16 +91,12 @@
             </div>
         </aside>
 
-        <!-- NỘI DUNG CHÍNH BÊN PHẢI -->
         <main class="main-content">
-            
-            <!-- 0. TỔNG QUAN CHỈ SỐ -->
+            <!-- 0. TỔNG QUAN -->
             <section id="overview" class="tab-content active">
                 <div class="header-title">
                     <h1>Tổng quan Chỉ số 📊</h1>
-                    <p>Cập nhật theo thông tin thể trạng của bạn</p>
                 </div>
-
                 <div class="stats-grid">
                     <div class="stat-card glass">
                         <i class='bx bx-body icon'></i>
@@ -113,7 +109,7 @@
                     <div class="stat-card glass">
                         <i class='bx bx-flame icon'></i>
                         <div>
-                            <h3>BMR (Calo tối thiểu)</h3>
+                            <h3>BMR</h3>
                             <p id="stat-bmr" class="stat-value">-- kcal</p>
                             <span class="stat-desc">Năng lượng sống cơ bản</span>
                         </div>
@@ -121,9 +117,9 @@
                     <div class="stat-card glass">
                         <i class='bx bx-run icon'></i>
                         <div>
-                            <h3>TDEE (Calo tiêu thụ/ngày)</h3>
+                            <h3>TDEE</h3>
                             <p id="stat-tdee" class="stat-value">-- kcal</p>
-                            <span class="stat-desc">Cần để duy trì hoạt động</span>
+                            <span class="stat-desc">Calo duy trì hoạt động</span>
                         </div>
                     </div>
                     <div class="stat-card glass">
@@ -140,39 +136,37 @@
             <!-- 1. GIẤC NGỦ -->
             <section id="sleep" class="tab-content">
                 <div class="header-title">
-                    <h1>Theo dõi Giấc ngủ & Chu kỳ 🌙</h1>
+                    <h1>Theo dõi Giấc ngủ 🌙</h1>
                 </div>
-
                 <div class="content-grid">
-                    <!-- Calculator Panel -->
                     <div class="panel glass">
-                        <h3>Tính toán & Đặt Streak</h3>
+                        <h3>Tính toán & Streak</h3>
                         <div class="form-row">
                             <div class="input-group">
-                                <label>Giờ ngủ:</label>
+                                <label>Giờ đi ngủ:</label>
                                 <input type="time" id="sleep-time" value="23:00">
                             </div>
                             <div class="input-group">
-                                <label>Giờ thức:</label>
+                                <label>Giờ thức dậy:</label>
                                 <input type="time" id="wake-time" value="06:30">
                             </div>
                         </div>
                         <div class="input-group">
-                            <label>Target ngủ trước giờ (Streak):</label>
-                            <input type="time" id="streak-target-time" value="23:00">
+                            <label>Mục tiêu ngủ trước giờ (Streak):</label>
+                            <input type="time" id="streak-target-time" value="23:30">
                         </div>
-                        <button id="btn-calc-sleep" class="btn-primary">Tính chu kỳ & Đánh giá</button>
-                        
+                        <button id="btn-calc-sleep" class="btn-primary">Phân tích giấc ngủ</button>
                         <div id="sleep-result" class="result-box"></div>
-                        <button id="btn-log-sleep" class="btn-secondary" style="display:none; margin-top:10px; width:100%;">Lưu vào Nhật ký ngủ 📖</button>
+                        <button id="btn-log-sleep" class="btn-secondary" style="display:none; margin-top:10px; width:100%;">Lưu nhật ký ngủ 📖</button>
+                        
+                        <!-- Thanh Streak 7 ngày -->
+                        <h4 style="margin-top:20px; color:var(--primary); font-size: 14px;">Chuỗi ngủ sớm 7 ngày gần nhất:</h4>
+                        <div id="sleep-streak-calendar" class="streak-calendar"></div>
                     </div>
 
-                    <!-- Sleep Log History -->
                     <div class="panel glass">
                         <h3>Lịch sử Giấc ngủ 📅</h3>
-                        <div id="sleep-history" class="history-list">
-                            <p class="empty-text">Chưa có nhật ký nào được ghi lại.</p>
-                        </div>
+                        <div id="sleep-history" class="history-list"></div>
                     </div>
                 </div>
             </section>
@@ -182,7 +176,6 @@
                 <div class="header-title">
                     <h1>Mục tiêu Nước Uống 💧</h1>
                 </div>
-
                 <div class="content-grid">
                     <div class="panel glass center-content">
                         <div class="progress-circle" id="water-circle">
@@ -190,15 +183,28 @@
                                 <span id="water-current">0</span> / <span id="water-target">2000</span> ml
                             </div>
                         </div>
-                        <div class="water-buttons">
-                            <button class="btn-secondary" onclick="addWater(250)">+ Cốc 250ml</button>
-                            <button class="btn-secondary" onclick="addWater(500)">+ Bình 500ml</button>
+                        <p id="water-streak-msg" style="margin-bottom: 15px; font-weight: bold; color: var(--primary);"></p>
+                        
+                        <div class="water-input-area">
+                            <div class="input-group" style="flex:1;">
+                                <select id="water-type">
+                                    <option value="Nước lọc">💧 Nước lọc</option>
+                                    <option value="Trà">🍵 Trà</option>
+                                    <option value="Cà phê">☕ Cà phê</option>
+                                    <option value="Nước ngọt">🥤 Nước ngọt</option>
+                                    <option value="Trà sữa">🧋 Trà sữa</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="flex:1;">
+                                <input type="number" id="water-custom-amount" placeholder="ml (VD: 250)">
+                            </div>
+                            <button id="btn-add-water" class="btn-primary">Uống!</button>
                         </div>
-                        <p id="water-suggest" class="suggestion">Uống đều đặn mỗi ngày nhé!</p>
+                        <p id="water-warning" class="warning-text" style="display:none; margin-top:10px; color: #ff6b6b; font-size:13px;"></p>
                     </div>
 
                     <div class="panel glass">
-                        <h3>Lịch sử uống trong ngày</h3>
+                        <h3>Lịch sử uống hôm nay</h3>
                         <ul id="water-log-list" class="checklist"></ul>
                     </div>
                 </div>
@@ -209,16 +215,33 @@
                 <div class="header-title">
                     <h1>Nhật ký Ăn uống 🍏</h1>
                 </div>
-                <div class="panel glass">
-                    <div class="form-row">
-                        <input type="text" id="food-input" placeholder="Nhập món ăn (VD: Phở bò, Táo)..." style="flex:1">
-                        <input type="number" id="food-calo-input" placeholder="Calo (ước tính)" style="width: 150px;">
-                        <button id="btn-add-food" class="btn-primary">Thêm món</button>
+                <div class="content-grid">
+                    <!-- Vòng tròn Calo -->
+                    <div class="panel glass center-content">
+                        <div class="progress-circle" id="food-circle" style="background: conic-gradient(var(--primary) 0%, var(--border) 0%);">
+                            <div class="progress-text">
+                                <span id="food-current">0</span> / <span id="target-calo-display">2000</span> kcal
+                            </div>
+                        </div>
+                        <p id="food-streak-msg" style="margin-bottom: 15px; font-weight: bold; color: var(--primary);"></p>
+                        
+                        <div class="macro-stats">
+                            <div class="macro">🥩 Đạm: <span id="macro-pro">0</span>g</div>
+                            <div class="macro">🍚 Tinh bột: <span id="macro-carb">0</span>g</div>
+                            <div class="macro">🥑 Béo: <span id="macro-fat">0</span>g</div>
+                            <div class="macro">🥬 Xơ: <span id="macro-fiber">0</span>g</div>
+                        </div>
+                        <p id="food-advice" class="suggestion" style="margin-top:15px;"></p>
                     </div>
-                    <div class="food-summary" style="margin-top:20px;">
-                        <h3>Tổng nạp: <span id="total-calo">0</span> / <span id="target-calo-display">2000</span> kcal</h3>
+
+                    <div class="panel glass">
+                        <div class="form-row">
+                            <input type="text" id="food-input" placeholder="Bạn vừa ăn gì? (VD: 1 tô phở bò, 1 quả chuối)" style="flex:1">
+                            <button id="btn-add-food" class="btn-primary">Nhập</button>
+                        </div>
+                        <p class="note" style="text-align:left;">*Hệ thống AI sẽ tự động ước lượng Calo và Dinh dưỡng.</p>
+                        <ul id="food-list" class="checklist" style="margin-top:15px;"></ul>
                     </div>
-                    <ul id="food-list" class="checklist"></ul>
                 </div>
             </section>
 
@@ -235,10 +258,8 @@
                     <ul id="workout-list" class="checklist"></ul>
                 </div>
             </section>
-
         </main>
     </div>
-
     <script src="app.js"></script>
 </body>
 </html>
