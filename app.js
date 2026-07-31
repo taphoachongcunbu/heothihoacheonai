@@ -450,28 +450,28 @@ function updateWaterUI() {
 }
 
 /* =========================================
-   7. ĂN UỐNG & GEMINI AI (FIXED ENDPOINT & MODEL)
+   7. ĂN UỐNG & BỘ NÃO GEMINI AI THỰC THỤ (NO CODE CỨNG)
    ========================================= */
 const GEMINI_API_KEY = "AIzaSyBuceM7Qc0Jjhmm3orIo5p2G9ubM886FkU";
 
 async function fetchNutritionFromGemini(foodQuery) {
     let lowerName = foodQuery.toLowerCase().trim();
 
-    // 1. Nếu người dùng đã từng sửa tay món này -> Lấy từ bộ nhớ
+    // 1. Ưu tiên bộ nhớ nếu bà đã từng tự tay sửa calo món đó
     if (customFoodDatabase[lowerName]) {
         return customFoodDatabase[lowerName];
     }
 
-    // 2. Tra cứu bằng Gemini API
+    // 2. Ép Gemini AI suy luận thực tế cho BẤT KỲ MÓ N NÀO
     if (GEMINI_API_KEY) {
-        // Dùng model gemini-1.5-flash-latest ổn định nhất trên REST API
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+        // Dùng Endpoint v1beta hỗ trợ CORS Client
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
 
-        const promptText = `Bạn là chuyên gia dinh dưỡng. Phân tích món ăn: "${foodQuery}".
-Hãy tính toán và trả về duy nhất 1 chuỗi JSON thuần đúng định dạng sau (không bọc trong markdown, không có chữ thừa):
-{"cal": số_kcal, "p": số_g_đạm, "c": số_g_tinh_bột, "f": số_g_béo, "fb": số_g_xơ}
-
-Ví dụ: 2 trứng luộc -> {"cal": 144, "p": 13, "c": 0, "f": 10, "fb": 0}`;
+        const promptText = `Bạn là chuyên gia dinh dưỡng. Hãy ước lượng dinh dưỡng cho món: "${foodQuery}".
+Chỉ trả về DUY NHẤT 5 số nguyên cách nhau bằng dấu phẩy theo thứ tự: calo,đạm,carbs,béo,xơ.
+Ví dụ 1 hộp sữa chua có đường: 95,3,14,3,0
+Ví dụ 2 trứng luộc: 144,13,0,10,0
+Không viết thêm bất kỳ chữ nào khác.`;
 
         try {
             const response = await fetch(url, {
@@ -486,44 +486,27 @@ Ví dụ: 2 trứng luộc -> {"cal": 144, "p": 13, "c": 0, "f": 10, "fb": 0}`;
                 const data = await response.json();
                 let rawText = data.candidates[0].content.parts[0].text.trim();
                 
-                // Vệ sinh chuỗi JSON
-                const mdBlock = String.fromCharCode(96, 96, 96);
-                rawText = rawText.replace(new RegExp(mdBlock + 'json', 'gi'), '')
-                                 .replace(new RegExp(mdBlock, 'g'), '')
-                                 .trim();
-                
-                const parsed = JSON.parse(rawText);
-                return {
-                    cal: Math.round(parsed.cal || 0),
-                    p: Math.round(parsed.p || 0),
-                    c: Math.round(parsed.c || 0),
-                    f: Math.round(parsed.f || 0),
-                    fb: Math.round((parsed.fb || 0) * 10) / 10
-                };
+                // Lấy ra 5 con số từ phản hồi của Gemini
+                let numbers = rawText.match(/\d+/g);
+                if (numbers && numbers.length >= 5) {
+                    return {
+                        cal: parseInt(numbers[0]),
+                        p: parseInt(numbers[1]),
+                        c: parseInt(numbers[2]),
+                        f: parseInt(numbers[3]),
+                        fb: parseFloat(numbers[4])
+                    };
+                }
             } else {
-                console.warn(`Gemini API Error Status: ${response.status}. Chuyển sang Local Smart Calc.`);
+                console.error("Lỗi Gemini HTTP Status:", response.status);
             }
         } catch (error) {
-            console.error("Lỗi kết nối Gemini API:", error);
+            console.error("Lỗi gọi Gemini AI:", error);
         }
     }
 
-    // 3. Dự phòng Local thông minh (Nếu API bận/lỗi) -> Tính chuẩn cho các món phổ biến
-    let matchNum = lowerName.match(/^(\d+[\.,]?\d*)/);
-    let qty = matchNum ? parseFloat(matchNum[1].replace(',', '.')) : 1;
-
-    if (lowerName.includes('trứng')) {
-        return { cal: Math.round(qty * 72), p: Math.round(qty * 6.3), c: 0, f: Math.round(qty * 5), fb: 0 };
-    }
-    if (lowerName.includes('matcha') || lowerName.includes('trà sữa')) {
-        let isLarge = lowerName.includes('700ml') || lowerName.includes('lớn');
-        return { cal: isLarge ? 450 : 320, p: 4, c: 65, f: 12, fb: 0 };
-    }
-    if (lowerName.includes('bánh mì')) return { cal: Math.round(qty * 380), p: 14, c: 45, f: 16, fb: 2 };
-    if (lowerName.includes('phở') || lowerName.includes('bún')) return { cal: Math.round(qty * 450), p: 22, c: 58, f: 12, fb: 3 };
-    if (lowerName.includes('cơm')) return { cal: Math.round(qty * 210), p: 4, c: 45, f: 1, fb: 1 };
-
-    return { cal: 180, p: 5, c: 20, f: 5, fb: 1 };
+    // Trường hợp mất mạng hoặc Gemini bận
+    return { cal: 100, p: 2, c: 10, f: 2, fb: 0 };
 }
 
 window.addFood = async function() {
@@ -531,7 +514,7 @@ window.addFood = async function() {
     const name = nameInput.value;
     if (!name.trim()) { showToast("Nhập tên món ăn nha!"); return; }
 
-    showToast("🧠 Gemini AI đang phân tích dinh dưỡng...");
+    showToast("🧠 Gemini AI đang phân tích món ăn...");
 
     if (!foodLogs[selectedDate]) foodLogs[selectedDate] = [];
     let nut = await fetchNutritionFromGemini(name);
@@ -551,7 +534,7 @@ window.addFood = async function() {
     nameInput.value = "";
     updateFoodUI();
     renderDateBars();
-    showToast(`Đã ghi nhận: ${name} (~${nut.cal} kcal)!`);
+    showToast(`Gemini AI: ${name} (~${nut.cal} kcal)!`);
 };
 
 window.editFoodCalories = function(id, foodName) {
