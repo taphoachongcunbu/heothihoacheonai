@@ -9,6 +9,7 @@
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body>
 
@@ -130,6 +131,7 @@
                         </div>
                     </div>
                 </div>
+                <div id="daily-report-card" class="panel glass" style="margin-top:20px;"></div>
             </section>
 
             <!-- 1. GIẤC NGỦ -->
@@ -165,6 +167,29 @@
                     <div class="panel glass">
                         <h3>Nhật ký giấc ngủ ngày chọn 📅</h3>
                         <div id="sleep-history" class="history-list"></div>
+                    </div>
+                </div>
+
+                <div class="content-grid" style="margin-top:20px;">
+                    <div class="panel glass">
+                        <h3>Ngủ trưa (Nap) 😴</h3>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Bắt đầu:</label>
+                                <input type="time" id="nap-start-time" value="13:00">
+                            </div>
+                            <div class="input-group">
+                                <label>Kết thúc:</label>
+                                <input type="time" id="nap-end-time" value="13:30">
+                            </div>
+                        </div>
+                        <button type="button" onclick="calculateNap()" class="btn-primary" style="margin-top: 15px;">Tính giấc ngủ trưa</button>
+                        <div id="nap-result" class="result-box"></div>
+                        <button type="button" id="btn-log-nap" onclick="saveNapLog()" class="btn-secondary" style="display:none; margin-top:10px; width:100%;">Lưu vào ngày đang chọn 📖</button>
+                    </div>
+                    <div class="panel glass">
+                        <h3>Nhật ký ngủ trưa ngày chọn 📅</h3>
+                        <div id="nap-history" class="history-list"></div>
                     </div>
                 </div>
             </section>
@@ -228,10 +253,10 @@
                         <p id="food-range-info" style="font-size: 13px; color: var(--text-sub); margin-bottom: 10px;"></p>
                         
                         <div class="macro-stats">
-                            <div class="macro">🥩 Đạm: <span id="macro-pro">0</span>g</div>
+                            <div class="macro">🥩 Đạm: <span id="macro-pro">0</span>g / <span id="macro-pro-target">--</span>g</div>
                             <div class="macro">🍚 Tinh bột: <span id="macro-carb">0</span>g</div>
                             <div class="macro">🥑 Béo: <span id="macro-fat">0</span>g</div>
-                            <div class="macro">🥬 Xơ: <span id="macro-fiber">0</span>g</div>
+                            <div class="macro">🥬 Xơ: <span id="macro-fiber">0</span>g / <span id="macro-fiber-target">--</span>g</div>
                         </div>
                         <p id="food-advice" class="suggestion" style="margin-top:15px;"></p>
                     </div>
@@ -254,13 +279,13 @@
                             <button type="button" class="btn-secondary" style="margin-left:auto; padding:6px 12px; font-size:13px;" onclick="openFoodDbManager()">📒 Món đã lưu</button>
                         </div>
 
-                        <p class="note" style="text-align:left; margin-top:8px;">*Chọn số lượng rõ ràng trước khi nhập tên món. Bấm vào món trong danh sách bên dưới để sửa calo lần ghi đó.</p>
+                        <p class="note" style="text-align:left; margin-top:8px;">*Chọn số lượng rõ ràng trước khi nhập tên món. Bấm vào món trong danh sách bên dưới để sửa dinh dưỡng lần ghi đó.</p>
                         <ul id="food-list" class="checklist" style="margin-top:15px;"></ul>
                     </div>
                 </div>
             </section>
+
             <!-- 4. THỂ THAO -->
-            
             <section id="workout" class="tab-content">
                 <div class="header-title">
                     <h1>Nhật ký Tập luyện 🏃</h1>
@@ -269,24 +294,28 @@
 
                 <div class="panel glass" style="margin-bottom: 20px;">
                     <div class="workout-mode-buttons">
-                        <button type="button" onclick="setWorkoutStatus('normal')" class="btn-secondary">🏋️ Ngày tập</button>
-                        <button type="button" onclick="setWorkoutStatus('off')" class="btn-secondary">🛌 Day Off</button>
-                        <button type="button" onclick="setWorkoutStatus('cheat')" class="btn-secondary">🍕 Cheat Day</button>
+                        <button type="button" data-mode="normal" onclick="setWorkoutStatus('normal')" class="btn-secondary">🏋️ Ngày tập</button>
+                        <button type="button" data-mode="off" onclick="setWorkoutStatus('off')" class="btn-secondary">🛌 Day Off</button>
+                        <button type="button" data-mode="cheat" onclick="setWorkoutStatus('cheat')" class="btn-secondary">🍕 Cheat Day</button>
                     </div>
                     <p id="workout-status-msg" style="margin-top: 15px; font-weight: bold; color: var(--primary); text-align: center;"></p>
                 </div>
 
                 <div class="panel glass">
+                    <div id="workout-quick-picks" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;"></div>
+
                     <div class="form-row">
-                        <input type="text" id="workout-input" placeholder="Tên bài tập..." style="flex:2">
+                        <input type="text" id="workout-input" placeholder="Tên bài tập..." list="workout-suggestions" style="flex:2">
+                        <datalist id="workout-suggestions"></datalist>
                         <input type="number" id="workout-duration" placeholder="Phút" style="flex:1">
-                        <select id="workout-type" style="flex:1">
+                        <select id="workout-type" style="flex:1" onchange="toggleCustomWorkoutType()">
                             <option value="Fullbody">🔥 Fullbody</option>
                             <option value="Leg day">🦵 Leg day</option>
                             <option value="Upper body">💪 Upper body</option>
                             <option value="Cardio">🏃 Cardio</option>
                             <option value="Khác">✨ Khác</option>
                         </select>
+                        <input type="text" id="workout-type-custom" placeholder="Nhập loại bài tập..." style="display:none; flex:1;">
                         <button type="button" onclick="addWorkout()" class="btn-primary">Thêm</button>
                     </div>
                     <ul id="workout-list" class="checklist"></ul>
@@ -297,5 +326,4 @@
 
     <script src="app.js"></script>
 </body>
-    
 </html>
