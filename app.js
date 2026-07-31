@@ -461,7 +461,8 @@ function updateWaterUI() {
 }
 
 /* =========================================
-   7. ĂN UỐNG - TÍCH HỢP TÌM KIẾM, TỰ ĐỘNG NHẬN DIỆN SỐ LƯỢNG & MODAL ĐẸP
+   7. ĂN UỐNG - TÌM KIẾM, BỘ CHỌN SỐ LƯỢNG RÕ RÀNG
+      & QUẢN LÝ MÓN ĂN ĐÃ LƯU (SỬA/XÓA)
    ========================================= */
 
 // Danh sách dự phòng các món ăn Việt Nam nấu thủ công phổ biến
@@ -478,6 +479,11 @@ const localFallbackDatabase = {
     "cơm trắng": { cal: 130, p: 2, c: 28, f: 0, fb: 0 }
 };
 
+// Chuẩn hóa tên món để tránh trùng lặp do khoảng trắng/hoa-thường
+function normalizeFoodName(name) {
+    return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 // Hàm phụ trợ tạo Modal động bằng JS để giữ nguyên file index.html của bạn
 function createCustomModal(title, bodyHTML, confirmText, onConfirm) {
     let existing = document.getElementById('helnai-dynamic-modal');
@@ -486,7 +492,7 @@ function createCustomModal(title, bodyHTML, confirmText, onConfirm) {
     const modalDiv = document.createElement('div');
     modalDiv.id = 'helnai-dynamic-modal';
     modalDiv.className = 'modal active';
-    
+
     modalDiv.innerHTML = `
         <div class="modal-content glass" style="max-width: 420px; animation: fadeIn 0.3s ease;">
             <h3 style="color: var(--primary); margin-bottom: 12px; font-size: 18px;">${title}</h3>
@@ -499,9 +505,9 @@ function createCustomModal(title, bodyHTML, confirmText, onConfirm) {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modalDiv);
-    
+
     const closeModal = () => {
         modalDiv.classList.remove('active');
         setTimeout(() => modalDiv.remove(), 250);
@@ -510,55 +516,35 @@ function createCustomModal(title, bodyHTML, confirmText, onConfirm) {
     document.getElementById('hd-modal-confirm').addEventListener('click', () => {
         onConfirm(modalDiv, closeModal);
     });
-    
+
     document.getElementById('hd-modal-cancel').addEventListener('click', closeModal);
     modalDiv.addEventListener('click', (e) => {
         if (e.target === modalDiv) closeModal();
     });
 }
 
-// Hàm phân tích câu để bóc tách số lượng, đơn vị và tên món ăn
-function parseQuantityAndFood(inputString) {
-    let text = inputString.trim();
-    let multiplier = 1;
-    let foodName = text;
-    
-    // Mẫu 1: Số lượng và đơn vị nằm ở đầu câu (VD: "5 quả trứng luộc", "200g ức gà", "1.5 bát cơm")
-    const startRegex = /^(\d+(?:\.\d+)?)\s*(quả|bát|chén|tô|hộp|g|gram|ml|cái|ly|lon|đĩa)?\s+(.+)$/i;
-    
-    // Mẫu 2: Số lượng và đơn vị nằm ở cuối câu (VD: "trứng luộc 5 quả", "ức gà 200g")
-    const endRegex = /^(.+?)\s+(\d+(?:\.\d+)?)\s*(quả|bát|chén|tô|hộp|g|gram|ml|cái|ly|lon|đĩa)?$/i;
-    
-    let match = text.match(startRegex);
-    if (match) {
-        let qty = parseFloat(match[1]);
-        let unit = (match[2] || "").toLowerCase();
-        foodName = match[3].trim();
-        
-        if (unit === "g" || unit === "gram") {
-            multiplier = qty / 100; // Tiêu chuẩn tính theo mỗi 100g
-        } else {
-            multiplier = qty;
-        }
-    } else {
-        match = text.match(endRegex);
-        if (match) {
-            let qty = parseFloat(match[2]);
-            let unit = (match[3] || "").toLowerCase();
-            foodName = match[1].trim();
-            
-            if (unit === "g" || unit === "gram") {
-                multiplier = qty / 100;
-            } else {
-                multiplier = qty;
-            }
-        }
-    }
-    
-    return {
-        foodName: foodName,
-        multiplier: multiplier
-    };
+/* ---------- BỘ CHỌN SỐ LƯỢNG (thay cho parse từ câu chữ) ---------- */
+// Yêu cầu HTML có: #food-qty (input number), #food-unit (select, tùy chọn)
+window.changeFoodQty = function(delta) {
+    const el = document.getElementById('food-qty');
+    if (!el) return;
+    let val = parseFloat(el.value) || 1;
+    val = Math.max(0.5, Math.round((val + delta * 0.5) * 10) / 10);
+    el.value = val;
+};
+
+function getFoodQtyMultiplier() {
+    const qtyEl = document.getElementById('food-qty');
+    let qty = qtyEl ? (parseFloat(qtyEl.value) || 1) : 1;
+    if (qty <= 0) qty = 1;
+    return qty;
+}
+
+function resetFoodQty() {
+    const qtyEl = document.getElementById('food-qty');
+    if (qtyEl) qtyEl.value = 1;
+    const unitEl = document.getElementById('food-unit');
+    if (unitEl) unitEl.value = 'unit';
 }
 
 // Hàm gọi API tìm kiếm từ Open Food Facts
@@ -600,7 +586,7 @@ function addFoodToLog(displayName, baseNut, multiplier) {
 
     foodLogs[selectedDate].unshift({
         id: Date.now(),
-        name: displayName, 
+        name: displayName,
         cal: finalCal,
         p: finalP,
         c: finalC,
@@ -616,28 +602,27 @@ function addFoodToLog(displayName, baseNut, multiplier) {
 
 window.addFood = async function() {
     const nameInput = document.getElementById('food-input');
-    const rawInput = nameInput.value.trim();
-    if (!rawInput) { showToast("Nhập tên món ăn nha!"); return; }
+    const rawName = nameInput.value.trim();
+    if (!rawName) { showToast("Nhập tên món ăn nha!"); return; }
 
-    const parsed = parseQuantityAndFood(rawInput);
-    const foodName = parsed.foodName;
-    const multiplier = parsed.multiplier;
-    const lowerName = foodName.toLowerCase();
+    const multiplier = getFoodQtyMultiplier();
+    const lowerName = normalizeFoodName(rawName);
+    const displayName = multiplier === 1 ? rawName : `${rawName} x${multiplier}`;
 
     if (!foodLogs[selectedDate]) foodLogs[selectedDate] = [];
 
     // 1. Kiểm tra bộ nhớ cá nhân
     if (customFoodDatabase[lowerName]) {
-        let nut = customFoodDatabase[lowerName];
-        addFoodToLog(rawInput, nut, multiplier);
+        addFoodToLog(displayName, customFoodDatabase[lowerName], multiplier);
         nameInput.value = "";
+        resetFoodQty();
         return;
     }
 
     showToast("🔍 Đang tìm kiếm thông tin dinh dưỡng...");
 
     // 2. Tìm kiếm qua API
-    let nut = await searchFoodFromAPI(foodName);
+    let nut = await searchFoodFromAPI(rawName);
 
     // 3. Sử dụng bộ dữ liệu dự phòng cục bộ
     if (!nut && localFallbackDatabase[lowerName]) {
@@ -645,15 +630,16 @@ window.addFood = async function() {
     }
 
     if (nut) {
-        addFoodToLog(rawInput, nut, multiplier);
+        addFoodToLog(displayName, nut, multiplier);
         nameInput.value = "";
+        resetFoodQty();
     } else {
-        // 4. Nếu không tìm thấy, hiện Modal thiết kế đẹp mắt thay vì dùng prompt
+        // 4. Nếu không tìm thấy, hiện Modal nhập calo thủ công
         createCustomModal(
             "Tự nhập Calo ✍️",
             `
             <p style="margin-bottom: 12px; color: var(--text-sub); line-height: 1.4;">
-                Hệ thống chưa có dữ liệu của món <b>"${foodName}"</b>. Vui lòng tự nhập chỉ số calo ước tính để thêm vào nhật ký:
+                Hệ thống chưa có dữ liệu của món <b>"${rawName}"</b>. Vui lòng tự nhập chỉ số calo ước tính cho <b>1 đơn vị/100g</b> (hệ thống sẽ tự nhân với số lượng bạn chọn):
             </p>
             <div class="input-group">
                 <label style="font-weight: 700;">Lượng Calo (cho 1 đơn vị hoặc 100g):</label>
@@ -676,30 +662,31 @@ window.addFood = async function() {
                     fb: 0
                 };
 
-                // Lưu lại món ăn tự định nghĩa này vào bộ nhớ
+                // Lưu lại món ăn tự định nghĩa này vào bộ nhớ (theo tên đã chuẩn hóa)
                 customFoodDatabase[lowerName] = baseNut;
                 localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
 
-                addFoodToLog(rawInput, baseNut, multiplier);
-                
+                addFoodToLog(displayName, baseNut, multiplier);
+
                 nameInput.value = "";
+                resetFoodQty();
                 closeModal();
             }
         );
     }
 };
 
+// Sửa lại lượng Calo của MỘT DÒNG LOG cụ thể trong ngày (không đụng tới bộ nhớ chung)
 window.editFoodCalories = function(id, foodName) {
     let currentLogs = foodLogs[selectedDate] || [];
     let item = currentLogs.find(l => l.id === id);
     if (!item) return;
 
-    // Hiện Modal chỉnh sửa calo đẹp mắt thay vì dùng prompt
     createCustomModal(
         "Sửa lượng Calo ✏️",
         `
         <p style="margin-bottom: 12px; color: var(--text-sub); line-height: 1.4;">
-            Nhập lượng Calo chuẩn mong muốn cho món <b>"${foodName}"</b>:
+            Nhập lượng Calo chuẩn mong muốn cho món <b>"${foodName}"</b> (chỉ áp dụng cho lần ghi này):
         </p>
         <div class="input-group">
             <label style="font-weight: 700;">Lượng Calo mới (kcal):</label>
@@ -721,11 +708,8 @@ window.editFoodCalories = function(id, foodName) {
 
             localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
 
-            customFoodDatabase[foodName.toLowerCase().trim()] = { cal: item.cal, p: item.p, c: item.c, f: item.f, fb: item.fb };
-            localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
-
             updateFoodUI();
-            showToast("Đã lưu số Calo mới!");
+            showToast("Đã lưu số Calo mới cho lần ghi này!");
             closeModal();
         }
     );
@@ -741,16 +725,97 @@ window.deleteFood = function(id) {
     }
 };
 
+/* ---------- QUẢN LÝ MÓN ĂN ĐÃ LƯU (customFoodDatabase) ---------- */
+// Cho phép xem/sửa/xóa các món đã lưu, độc lập với log theo ngày.
+// Gọi window.openFoodDbManager() từ 1 nút trong tab ăn uống, ví dụ:
+// <button type="button" onclick="openFoodDbManager()">📒 Món đã lưu</button>
+
+window.openFoodDbManager = function() {
+    const keys = Object.keys(customFoodDatabase).sort();
+    let bodyHTML = keys.length === 0
+        ? `<p class="suggestion">Chưa có món ăn tự lưu nào. Món bạn tự nhập calo sẽ xuất hiện ở đây.</p>`
+        : `<ul style="list-style:none; padding:0; max-height:320px; overflow-y:auto;">` +
+            keys.map(k => {
+                const f = customFoodDatabase[k];
+                return `
+                    <li class="history-item" style="margin-bottom:8px;">
+                        <div class="history-item-info">
+                            <strong>${k}</strong>
+                            <span style="font-size:12px; color:var(--text-sub)">
+                                ${f.cal} kcal • Đ:${f.p}g B:${f.c}g Béo:${f.f}g Xơ:${f.fb || 0}g
+                            </span>
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="editCustomFoodEntry('${k}')">Sửa</button>
+                            <button type="button" class="btn-delete" onclick="deleteCustomFoodEntry('${k}')">Xóa</button>
+                        </div>
+                    </li>`;
+            }).join('') +
+          `</ul>`;
+
+    createCustomModal("Món ăn đã lưu 📒", bodyHTML, "Đóng", (m, close) => close());
+};
+
+window.editCustomFoodEntry = function(key) {
+    const f = customFoodDatabase[key];
+    if (!f) return;
+
+    createCustomModal(
+        "Sửa món ăn ✏️",
+        `
+        <div class="input-group">
+            <label style="font-weight: 700;">Tên món</label>
+            <input type="text" id="hd-edit-name" value="${key}" style="margin: 5px 0 12px; width:100%;">
+        </div>
+        <div class="input-group">
+            <label style="font-weight: 700;">Calo (cho 1 đơn vị hoặc 100g)</label>
+            <input type="number" id="hd-edit-db-calo" value="${f.cal}" min="0" style="width:100%;">
+        </div>
+        `,
+        "Lưu",
+        (modalElement, closeModal) => {
+            const newName = normalizeFoodName(document.getElementById('hd-edit-name').value);
+            const newCal = parseInt(document.getElementById('hd-edit-db-calo').value);
+
+            if (!newName) { showToast("Tên món không được để trống!"); return; }
+            if (isNaN(newCal) || newCal < 0) { showToast("Số calo không hợp lệ!"); return; }
+
+            // Nếu đổi tên, xóa key cũ trước khi ghi key mới
+            if (newName !== key) delete customFoodDatabase[key];
+
+            customFoodDatabase[newName] = {
+                cal: newCal,
+                p: Math.round(newCal * 0.15 / 4),
+                c: Math.round(newCal * 0.5 / 4),
+                f: Math.round(newCal * 0.35 / 9),
+                fb: f.fb || 0
+            };
+            localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
+
+            showToast("Đã cập nhật món ăn!");
+            closeModal();
+            openFoodDbManager();
+        }
+    );
+};
+
+window.deleteCustomFoodEntry = function(key) {
+    delete customFoodDatabase[key];
+    localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
+    showToast("Đã xóa món khỏi bộ nhớ!");
+    openFoodDbManager();
+};
+
 function updateFoodUI() {
     const targetEl = document.getElementById('target-calo-display');
     if (!targetEl) return;
     const target = parseInt(targetEl.innerText) || 2000;
     const bmr = parseInt(document.getElementById('stat-bmr').innerText) || 1200;
     const tdee = parseInt(document.getElementById('stat-tdee').innerText) || 2000;
-    
+
     const logs = foodLogs[selectedDate] || [];
     let tCal=0, tP=0, tC=0, tF=0, tFb=0;
-    
+
     logs.forEach(log => {
         tCal += log.cal; tP += log.p; tC += log.c; tF += log.f; tFb += log.fb;
     });
@@ -791,8 +856,6 @@ function updateFoodUI() {
         </li>
     `).join('');
 }
-
-// Giữ lại các hàm editFoodCalories, deleteFood và updateFoodUI của bạn bên dưới...
 /* =========================================
    8. THỂ THAO
    ========================================= */
