@@ -167,3 +167,36 @@ button { cursor: pointer; border-radius: 12px; font-weight: 700; transition: 0.2
     width: 90%;
 }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+/* Fix: ép form nhập món ăn không bị giãn cao theo panel */
+#food .form-row {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;   /* input và nút cao bằng nhau, vừa đủ */
+    flex: none;             /* không cho form-row giãn theo panel cha */
+    height: auto;
+    gap: 10px;
+    width: 100%;
+}
+
+#food .form-row #food-input {
+    flex: 1;
+    height: 44px;
+    padding: 0 14px;
+    font-size: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    box-sizing: border-box;
+}
+
+#food .form-row .btn-primary {
+    height: 44px;
+    padding: 0 20px;
+    flex: none;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+
+/* Panel bên phải không nên tự giãn cao hết cỡ khi ít nội dung */
+#food .panel.glass {
+    align-self: start;
+}
