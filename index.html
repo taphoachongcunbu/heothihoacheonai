@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hel Nái - Dashboard Sức Khỏe</title>
+    <title>Heo Thì - Dashboard Sức Khỏe</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
@@ -17,7 +17,7 @@
     <!-- MODAL NHẬP THÔNG TIN BAN ĐẦU -->
     <div id="user-modal" class="modal">
         <div class="modal-content glass">
-            <h2>Hồ Sơ Sức Khỏe - Hel Nái 🌸</h2>
+            <h2>Hồ Sơ Sức Khỏe - Heo Thì 🌸</h2>
             <p class="subtitle">Nhập thông tin để hệ thống tính toán chỉ số chính xác cho bạn.</p>
             
             <form id="health-form" onsubmit="saveHealthForm(event)">
@@ -68,7 +68,7 @@
     <div class="dashboard-container">
         <aside class="sidebar glass">
             <div class="logo">
-                <h2>Hel Nái 💜</h2>
+                <h2>Heo Thì 💜</h2>
             </div>
             
             <nav class="nav-menu">
@@ -213,7 +213,7 @@
             <!-- 3. ĂN UỐNG -->
             <section id="food" class="tab-content">
                 <div class="header-title">
-                    <h1>Nhật ký Ăn uống 🍏</h1>
+                    <h1>Nhật ký Ăn uống (Gemini AI) 🍏</h1>
                 </div>
                 <div id="food-date-bar" class="date-selector-wrapper"></div>
 
@@ -238,9 +238,10 @@
 
                     <div class="panel glass">
                         <div class="form-row">
-                            <input type="text" id="food-input" placeholder="Bạn vừa ăn gì? (VD: 1 tô phở bò)" style="flex:1">
+                            <input type="text" id="food-input" placeholder="Bạn vừa ăn gì? (VD: 1 tô phở bò, 2 trứng luộc)" style="flex:1">
                             <button type="button" onclick="addFood()" class="btn-primary">Nhập</button>
                         </div>
+                        <p class="note" style="text-align:left;">*Tra cứu chính xác bằng Gemini AI. Bấm vào món ăn để chỉnh sửa nếu muốn.</p>
                         <ul id="food-list" class="checklist" style="margin-top:15px;"></ul>
                     </div>
                 </div>
