@@ -26,7 +26,6 @@ body.dark-mode {
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Nunito', sans-serif; }
 body { background-color: var(--bg-color); color: var(--text-color); min-height: 100vh; transition: background 0.3s ease; overflow-x: hidden; }
 
-/* Dashboard Container */
 .dashboard-container { display: flex; min-height: 100vh; max-width: 1400px; margin: 0 auto; width: 100%; }
 .glass { background: var(--surface-color); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); backdrop-filter: blur(10px); }
 
@@ -48,17 +47,18 @@ body { background-color: var(--bg-color); color: var(--text-color); min-height: 
 .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Thanh Lịch Động (Calendar Wrapper) */
+/* Thanh Lịch Động Hiện Ngày & Tháng */
 .date-selector-wrapper { display: flex; align-items: center; gap: 8px; margin-bottom: 25px; width: 100%; }
 .date-selector-bar { display: flex; gap: 8px; overflow-x: auto; flex: 1; scrollbar-width: none; padding-bottom: 4px; }
 .date-selector-bar::-webkit-scrollbar { display: none; }
 
-.date-btn { display: flex; flex-direction: column; align-items: center; padding: 8px 12px; border-radius: 14px; background: var(--surface-color); border: 1px solid var(--border); cursor: pointer; min-width: 60px; transition: 0.2s; flex-shrink: 0; }
+.date-btn { display: flex; flex-direction: column; align-items: center; padding: 8px 12px; border-radius: 14px; background: var(--surface-color); border: 1px solid var(--border); cursor: pointer; min-width: 65px; transition: 0.2s; flex-shrink: 0; }
 .date-btn span { font-size: 11px; color: var(--text-sub); }
 .date-btn strong { font-size: 14px; margin-top: 2px; }
+.date-btn .date-month { font-size: 10px; color: var(--primary); font-weight: 800; }
 .date-btn .streak-icon { font-size: 13px; margin-top: 2px; }
 .date-btn.active { background: var(--primary); color: white; }
-.date-btn.active span { color: white; }
+.date-btn.active span, .date-btn.active .date-month { color: white; }
 
 .cal-nav-btn { background: var(--primary-light); color: var(--primary); padding: 8px 12px; border-radius: 12px; font-weight: bold; font-size: 14px; flex-shrink: 0; }
 .cal-today-btn { background: var(--primary); color: white; padding: 8px 14px; border-radius: 12px; font-size: 13px; flex-shrink: 0; }
@@ -114,9 +114,7 @@ button { cursor: pointer; border-radius: 12px; font-weight: 700; transition: 0.2
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
-/* =========================================
-   MOBILE RESPONSIVE (TỐI ƯU ĐIỆN THOẠI)
-   ========================================= */
+/* Mobile Responsive */
 @media (max-width: 768px) {
     .dashboard-container { flex-direction: column; }
     
@@ -145,6 +143,6 @@ button { cursor: pointer; border-radius: 12px; font-weight: 700; transition: 0.2
     .form-grid { grid-template-columns: 1fr; }
     .full-width { grid-column: span 1; }
     
-    .date-btn { min-width: 50px; padding: 6px 8px; }
+    .date-btn { min-width: 55px; padding: 6px 8px; }
     .date-btn strong { font-size: 13px; }
 }
