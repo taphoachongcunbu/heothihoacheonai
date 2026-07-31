@@ -7,13 +7,11 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 </head>
 <body>
 
-    <!-- Toast Notification -->
     <div id="toast-container"></div>
 
     <!-- MODAL NHẬP THÔNG TIN BAN ĐẦU -->
@@ -66,9 +64,8 @@
         </div>
     </div>
 
-    <!-- MAIN DASHBOARD LAYOUT -->
+    <!-- DASHBOARD LAYOUT -->
     <div class="dashboard-container">
-        
         <aside class="sidebar glass">
             <div class="logo">
                 <h2>Hel Nái 💜</h2>
@@ -111,7 +108,7 @@
                     <div class="stat-card glass">
                         <i class='bx bx-flame icon'></i>
                         <div>
-                            <h3>BMR</h3>
+                            <h3>BMR (Tối thiểu)</h3>
                             <p id="stat-bmr" class="stat-value">-- kcal</p>
                             <span class="stat-desc">Năng lượng sống cơ bản</span>
                         </div>
@@ -119,17 +116,17 @@
                     <div class="stat-card glass">
                         <i class='bx bx-run icon'></i>
                         <div>
-                            <h3>TDEE</h3>
+                            <h3>TDEE (Tối đa)</h3>
                             <p id="stat-tdee" class="stat-value">-- kcal</p>
-                            <span class="stat-desc">Calo duy trì hoạt động</span>
+                            <span class="stat-desc">Mức duy trì cân nặng</span>
                         </div>
                     </div>
                     <div class="stat-card glass">
                         <i class='bx bx-target-lock icon'></i>
                         <div>
-                            <h3>Target Calo Nạp</h3>
+                            <h3>Gợi ý Nạp Calo</h3>
                             <p id="stat-target-calo" class="stat-value">-- kcal</p>
-                            <span class="stat-desc">Theo mục tiêu của bạn</span>
+                            <span id="stat-goal-desc" class="stat-desc">Khoảng nạp tối ưu</span>
                         </div>
                     </div>
                 </div>
@@ -140,6 +137,9 @@
                 <div class="header-title">
                     <h1>Theo dõi Giấc ngủ 🌙</h1>
                 </div>
+                <!-- Lịch hàng ngang -->
+                <div id="sleep-date-bar" class="date-selector-bar"></div>
+
                 <div class="content-grid">
                     <div class="panel glass">
                         <h3>Tính toán & Streak</h3>
@@ -159,14 +159,11 @@
                         </div>
                         <button type="button" onclick="calculateSleep()" class="btn-primary" style="margin-top: 15px;">Phân tích giấc ngủ</button>
                         <div id="sleep-result" class="result-box"></div>
-                        <button type="button" id="btn-log-sleep" onclick="saveSleepLog()" class="btn-secondary" style="display:none; margin-top:10px; width:100%;">Lưu nhật ký ngủ 📖</button>
-                        
-                        <h4 style="margin-top:20px; color:var(--primary); font-size: 14px;">Chuỗi ngủ sớm 7 ngày gần nhất:</h4>
-                        <div id="sleep-streak-calendar" class="streak-calendar"></div>
+                        <button type="button" id="btn-log-sleep" onclick="saveSleepLog()" class="btn-secondary" style="display:none; margin-top:10px; width:100%;">Lưu vào ngày đang chọn 📖</button>
                     </div>
 
                     <div class="panel glass">
-                        <h3>Lịch sử Giấc ngủ 📅</h3>
+                        <h3>Nhật ký giấc ngủ ngày chọn 📅</h3>
                         <div id="sleep-history" class="history-list"></div>
                     </div>
                 </div>
@@ -177,6 +174,9 @@
                 <div class="header-title">
                     <h1>Mục tiêu Nước Uống 💧</h1>
                 </div>
+                <!-- Lịch hàng ngang -->
+                <div id="water-date-bar" class="date-selector-bar"></div>
+
                 <div class="content-grid">
                     <div class="panel glass center-content">
                         <div class="progress-circle" id="water-circle">
@@ -184,7 +184,7 @@
                                 <span id="water-current">0</span> / <span id="water-target">2000</span> ml
                             </div>
                         </div>
-                        <p id="water-streak-msg" style="margin-bottom: 15px; font-weight: bold; color: var(--primary);"></p>
+                        <p id="water-streak-msg" class="streak-badge"></p>
                         
                         <div class="water-input-area">
                             <div class="input-group" style="flex:1;">
@@ -205,7 +205,7 @@
                     </div>
 
                     <div class="panel glass">
-                        <h3>Lịch sử uống hôm nay</h3>
+                        <h3>Lịch sử uống ngày chọn</h3>
                         <ul id="water-log-list" class="checklist"></ul>
                     </div>
                 </div>
@@ -216,14 +216,18 @@
                 <div class="header-title">
                     <h1>Nhật ký Ăn uống 🍏</h1>
                 </div>
+                <!-- Lịch hàng ngang -->
+                <div id="food-date-bar" class="date-selector-bar"></div>
+
                 <div class="content-grid">
                     <div class="panel glass center-content">
-                        <div class="progress-circle" id="food-circle" style="background: conic-gradient(var(--primary) 0%, var(--border) 0%);">
+                        <div class="progress-circle" id="food-circle">
                             <div class="progress-text">
                                 <span id="food-current">0</span> / <span id="target-calo-display">2000</span> kcal
                             </div>
                         </div>
-                        <p id="food-streak-msg" style="margin-bottom: 15px; font-weight: bold; color: var(--primary);"></p>
+                        <p id="food-streak-msg" class="streak-badge"></p>
+                        <p id="food-range-info" style="font-size: 13px; color: var(--text-sub); margin-bottom: 10px;"></p>
                         
                         <div class="macro-stats">
                             <div class="macro">🥩 Đạm: <span id="macro-pro">0</span>g</div>
@@ -236,10 +240,9 @@
 
                     <div class="panel glass">
                         <div class="form-row">
-                            <input type="text" id="food-input" placeholder="Bạn vừa ăn gì? (VD: 1 tô phở bò, Matcha 700ml)" style="flex:1">
+                            <input type="text" id="food-input" placeholder="Bạn vừa ăn gì? (VD: 1 tô phở bò)" style="flex:1">
                             <button type="button" onclick="addFood()" class="btn-primary">Nhập</button>
                         </div>
-                        <p class="note" style="text-align:left;">*Hệ thống AI ước lượng dinh dưỡng theo ngữ cảnh.</p>
                         <ul id="food-list" class="checklist" style="margin-top:15px;"></ul>
                     </div>
                 </div>
@@ -250,10 +253,30 @@
                 <div class="header-title">
                     <h1>Nhật ký Tập luyện 🏃</h1>
                 </div>
+                <!-- Lịch hàng ngang -->
+                <div id="workout-date-bar" class="date-selector-bar"></div>
+
+                <div class="panel glass" style="margin-bottom: 20px;">
+                    <div class="workout-mode-buttons">
+                        <button type="button" onclick="setWorkoutStatus('normal')" class="btn-secondary">🏋️ Ngày tập luyện</button>
+                        <button type="button" onclick="setWorkoutStatus('off')" class="btn-secondary">🛌 Ngày nghỉ (Day Off)</button>
+                        <button type="button" onclick="setWorkoutStatus('cheat')" class="btn-secondary">🍕 Cheat Day</button>
+                    </div>
+                    <p id="workout-status-msg" style="margin-top: 15px; font-weight: bold; color: var(--primary); text-align: center;"></p>
+                </div>
+
                 <div class="panel glass">
                     <div class="form-row">
-                        <input type="text" id="workout-input" placeholder="Bài tập hôm nay (VD: Chạy 30p, Gập bụng 50 cái)..." style="flex:1">
-                        <button type="button" onclick="addWorkout()" class="btn-primary">Thêm bài tập</button>
+                        <input type="text" id="workout-input" placeholder="Tên bài tập (VD: Chạy bộ, Gập bụng)..." style="flex:2">
+                        <input type="number" id="workout-duration" placeholder="Số phút" style="flex:1">
+                        <select id="workout-type" style="flex:1">
+                            <option value="Fullbody">🔥 Fullbody</option>
+                            <option value="Leg day">🦵 Leg day</option>
+                            <option value="Upper body">💪 Upper body</option>
+                            <option value="Cardio">🏃 Cardio</option>
+                            <option value="Khác">✨ Khác</option>
+                        </select>
+                        <button type="button" onclick="addWorkout()" class="btn-primary">Thêm</button>
                     </div>
                     <ul id="workout-list" class="checklist"></ul>
                 </div>
