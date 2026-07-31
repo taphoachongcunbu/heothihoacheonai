@@ -73,13 +73,16 @@
             <div class="logo">
                 <h2>Hel Nái 💜</h2>
             </div>
+            
+            <!-- THÊM ONCLICK TRỰC TIẾP TẠI ĐÂY -->
             <nav class="nav-menu">
-                <button type="button" class="nav-btn active" data-target="overview"><i class='bx bx-grid-alt'></i> Tổng quan</button>
-                <button type="button" class="nav-btn" data-target="sleep"><i class='bx bx-moon'></i> Giấc ngủ</button>
-                <button type="button" class="nav-btn" data-target="water"><i class='bx bx-water'></i> Uống nước</button>
-                <button type="button" class="nav-btn" data-target="food"><i class='bx bx-bowl-rice'></i> Ăn uống</button>
-                <button type="button" class="nav-btn" data-target="workout"><i class='bx bx-run'></i> Thể thao</button>
+                <button type="button" class="nav-btn active" onclick="switchTab('overview', this)"><i class='bx bx-grid-alt'></i> Tổng quan</button>
+                <button type="button" class="nav-btn" onclick="switchTab('sleep', this)"><i class='bx bx-moon'></i> Giấc ngủ</button>
+                <button type="button" class="nav-btn" onclick="switchTab('water', this)"><i class='bx bx-water'></i> Uống nước</button>
+                <button type="button" class="nav-btn" onclick="switchTab('food', this)"><i class='bx bx-bowl-rice'></i> Ăn uống</button>
+                <button type="button" class="nav-btn" onclick="switchTab('workout', this)"><i class='bx bx-run'></i> Thể thao</button>
             </nav>
+
             <div class="sidebar-bottom">
                 <div id="auth-status" class="auth-box">
                     <button type="button" id="btn-login" class="btn-secondary"><i class='bx bxl-google'></i> Đăng nhập</button>
