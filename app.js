@@ -3,14 +3,13 @@
    ========================================= */
 // BÀ CẦN ĐIỀN THÔNG TIN FIREBASE CỦA BÀ VÀO ĐÂY (Sẽ hướng dẫn ở bước sau)
 const firebaseConfig = {
-    apiKey: "YOUT_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDXQZRfGNQ0-_NUPWqxOmjCxWq51T3b3qI",
+  authDomain: "healthyhoacheonai.firebaseapp.com",
+  projectId: "healthyhoacheonai",
+  storageBucket: "healthyhoacheonai.firebasestorage.app",
+  messagingSenderId: "707815568295",
+  appId: "1:707815568295:web:fc6faeb9e79dc2b6ad7c82"
 };
-
 // Khởi tạo Firebase (chỉ chạy nếu đã có config)
 if(firebaseConfig.apiKey !== "YOUT_API_KEY"){
     firebase.initializeApp(firebaseConfig);
