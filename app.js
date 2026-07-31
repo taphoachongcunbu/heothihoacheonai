@@ -19,11 +19,13 @@ window.switchTab = function(targetId, btnElement) {
     tabContents.forEach(c => c.classList.remove('active'));
 
     if (btnElement) btnElement.classList.add('active');
-    
+
     const targetContent = document.getElementById(targetId);
     if (targetContent) {
         targetContent.classList.add('active');
     }
+
+    if (targetId === 'overview') renderOverviewReport();
 };
 
 window.toggleDarkMode = function() {
@@ -37,7 +39,7 @@ function getWeekDays(offset = 0) {
     let days = [];
     let today = new Date();
     today.setDate(today.getDate() + (offset * 7));
-    
+
     for (let i = 6; i >= 0; i--) {
         let d = new Date(today);
         d.setDate(d.getDate() - i);
@@ -66,9 +68,12 @@ function getStreakIconForDate(module, dateStr) {
     if (module === 'food') {
         const logs = foodLogs[dateStr] || [];
         let tdee = parseInt(document.getElementById('stat-tdee')?.innerText) || 2000;
+        let bmr = parseInt(document.getElementById('stat-bmr')?.innerText) || 1200;
         let total = logs.reduce((sum, l) => sum + l.cal, 0);
         if (total === 0) return '🍏';
-        return total <= tdee ? '🔥' : '⚠️';
+        if (total > tdee) return '⚠️';
+        if (total < bmr) return '⚠️';
+        return '🔥';
     }
     if (module === 'workout') {
         const dayData = workoutLogs[dateStr];
@@ -85,11 +90,11 @@ function getStreakIconForDate(module, dateStr) {
 function renderDateBars() {
     const days = getWeekDays(currentWeekOffset);
     const modules = ['sleep', 'water', 'food', 'workout'];
-    
+
     modules.forEach(mod => {
         const wrapper = document.getElementById(`${mod}-date-bar`);
         if (!wrapper) return;
-        
+
         wrapper.innerHTML = `
             <button type="button" class="cal-nav-btn" onclick="changeWeek(-1)" title="Tuần trước">❮</button>
             <div class="date-selector-bar">
@@ -121,18 +126,22 @@ window.goToToday = function() {
     selectedDate = new Date().toISOString().split('T')[0];
     renderDateBars();
     renderSleep();
+    renderNap();
     updateWaterUI();
     updateFoodUI();
     renderWorkout();
+    renderOverviewReport();
 };
 
 window.selectDate = function(dateStr) {
     selectedDate = dateStr;
     renderDateBars();
     renderSleep();
+    renderNap();
     updateWaterUI();
     updateFoodUI();
     renderWorkout();
+    renderOverviewReport();
 };
 
 /* =========================================
@@ -150,17 +159,102 @@ function safeLoadData(key) {
 
 let userProfile = JSON.parse(localStorage.getItem('helnai_user_profile')) || null;
 let sleepLogs = safeLoadData('helnai_sleep_logs');
+let napLogs = safeLoadData('helnai_nap_logs');
 let waterLogs = safeLoadData('helnai_water_logs');
 let foodLogs = safeLoadData('helnai_food_logs');
 let workoutLogs = safeLoadData('helnai_workout_logs');
 let customFoodDatabase = safeLoadData('helnai_custom_foods');
+let workoutHistoryDB = safeLoadData('helnai_workout_history');
 // Đọc API Key lưu trữ từ LocalStorage nếu có
 let storedApiKey = localStorage.getItem('helnai_api_key') || "";
 
 /* =========================================
-   3. FIREBASE AUTH
+   3. FIREBASE AUTH + FIRESTORE CLOUD SYNC
    ========================================= */
-let auth = null, provider = null;
+let auth = null, provider = null, db = null, currentUser = null;
+
+const CLOUD_KEYS = [
+    'helnai_user_profile', 'helnai_sleep_logs', 'helnai_nap_logs',
+    'helnai_water_logs', 'helnai_food_logs', 'helnai_workout_logs',
+    'helnai_custom_foods', 'helnai_workout_history'
+];
+
+// Ghi dữ liệu vào localStorage NGAY LẬP TỨC (đồng bộ), sau đó đẩy lên Firestore (bất đồng bộ) nếu đã đăng nhập
+async function persist(key, dataObj) {
+    localStorage.setItem(key, JSON.stringify(dataObj));
+    if (db && currentUser) {
+        try {
+            await db.collection('users').doc(currentUser.uid)
+                .collection('data').doc(key)
+                .set({ payload: JSON.stringify(dataObj), updatedAt: Date.now() });
+        } catch (e) {
+            console.error("Lỗi đồng bộ Cloud:", e);
+            showToast("⚠️ Không đồng bộ được lên Cloud, dữ liệu vẫn lưu máy này.");
+        }
+    }
+}
+
+function reloadAllDataFromLocalStorage() {
+    userProfile = JSON.parse(localStorage.getItem('helnai_user_profile')) || null;
+    sleepLogs = safeLoadData('helnai_sleep_logs');
+    napLogs = safeLoadData('helnai_nap_logs');
+    waterLogs = safeLoadData('helnai_water_logs');
+    foodLogs = safeLoadData('helnai_food_logs');
+    workoutLogs = safeLoadData('helnai_workout_logs');
+    customFoodDatabase = safeLoadData('helnai_custom_foods');
+    workoutHistoryDB = safeLoadData('helnai_workout_history');
+}
+
+function renderEverything() {
+    const userModal = document.getElementById('user-modal');
+    if (!userProfile) {
+        if (userModal) userModal.classList.add('active');
+    } else {
+        if (userModal) userModal.classList.remove('active');
+        calculateAndDisplayStats();
+    }
+    renderDateBars();
+    renderSleep();
+    renderNap();
+    updateWaterUI();
+    updateFoodUI();
+    renderWorkout();
+    renderWorkoutSuggestions();
+    renderOverviewReport();
+}
+
+// Tải dữ liệu từ Firestore về, GHI ĐÈ localStorage, rồi render lại toàn bộ UI
+async function loadFromCloud(uid) {
+    if (!db) return;
+    showToast("☁️ Đang tải dữ liệu từ Cloud...");
+    let foundAny = false;
+    for (let key of CLOUD_KEYS) {
+        try {
+            const doc = await db.collection('users').doc(uid).collection('data').doc(key).get();
+            if (doc.exists) {
+                foundAny = true;
+                localStorage.setItem(key, doc.data().payload);
+            }
+        } catch (e) {
+            console.error("Lỗi tải Cloud:", e);
+        }
+    }
+    reloadAllDataFromLocalStorage();
+    renderEverything();
+    showToast(foundAny ? "✅ Đã đồng bộ dữ liệu từ Cloud!" : "☁️ Tài khoản mới, chưa có dữ liệu Cloud.");
+
+    // Đẩy toàn bộ dữ liệu local hiện có lên Cloud lần đầu (phòng khi local có mà cloud chưa có)
+    if (!foundAny) {
+        persist('helnai_user_profile', userProfile);
+        persist('helnai_sleep_logs', sleepLogs);
+        persist('helnai_nap_logs', napLogs);
+        persist('helnai_water_logs', waterLogs);
+        persist('helnai_food_logs', foodLogs);
+        persist('helnai_workout_logs', workoutLogs);
+        persist('helnai_custom_foods', customFoodDatabase);
+        persist('helnai_workout_history', workoutHistoryDB);
+    }
+}
 
 try {
     const firebaseConfig = {
@@ -176,9 +270,12 @@ try {
         firebase.initializeApp(firebaseConfig);
         auth = firebase.auth();
         provider = new firebase.auth.GoogleAuthProvider();
+        if (firebase.firestore) db = firebase.firestore();
 
         auth.onAuthStateChanged(user => {
             const authStatusEl = document.getElementById('auth-status');
+            currentUser = user || null;
+
             if (user) {
                 authStatusEl.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -187,8 +284,9 @@ try {
                     </div>
                     <button type="button" onclick="logoutGoogle()" class="btn-secondary" style="padding: 4px 8px; font-size:12px;">Đăng xuất</button>
                 `;
+                loadFromCloud(user.uid);
             } else {
-                authStatusEl.innerHTML = `<button type="button" onclick="loginGoogle()" class="btn-secondary" style="width: 100%;"><i class='bx bxl-google'></i> Đăng nhập</button>`;
+                authStatusEl.innerHTML = `<button type="button" onclick="loginGoogle()" class="btn-secondary" style="width: 100%;"><i class='bx bxl-google'></i> Đăng nhập để đồng bộ dữ liệu</button>`;
             }
         });
     }
@@ -231,29 +329,34 @@ window.saveHealthForm = function(e) {
         activity: parseFloat(document.getElementById('activity').value),
         goal: document.getElementById('goal').value
     };
-    localStorage.setItem('helnai_user_profile', JSON.stringify(userProfile));
-    
-    // Lưu khóa API cấu hình cá nhân
+    persist('helnai_user_profile', userProfile);
+
+    // Lưu khóa API cấu hình cá nhân (chỉ lưu local, không cần đồng bộ Cloud)
     const apiKeyVal = document.getElementById('api-key').value.trim();
     localStorage.setItem('helnai_api_key', apiKeyVal);
     storedApiKey = apiKeyVal;
 
     const userModal = document.getElementById('user-modal');
     if (userModal) userModal.classList.remove('active');
-    
+
     calculateAndDisplayStats();
     renderDateBars();
+    renderOverviewReport();
     showToast("Đã lưu hồ sơ sức khỏe! 🌸");
 };
+
+// Mục tiêu đạm/xơ tính theo từng người thay vì số cố định cho tất cả
+window.dailyProteinTarget = 50;
+window.dailyFiberTarget = 25;
 
 function calculateAndDisplayStats() {
     if (!userProfile) return;
     const h = userProfile.height / 100;
     const bmi = (userProfile.weight / (h * h)).toFixed(1);
-    
+
     const bmiEl = document.getElementById('stat-bmi');
     if (bmiEl) bmiEl.innerText = bmi;
-    
+
     const bmiTextEl = document.getElementById('stat-bmi-text');
     if (bmiTextEl) bmiTextEl.innerText = bmi < 18.5 ? "Gầy" : (bmi >= 25 ? "Thừa cân" : "Bình thường");
 
@@ -274,19 +377,30 @@ function calculateAndDisplayStats() {
         targetCalo = tdee + 350;
         goalText = `Gợi ý nạp ~${targetCalo} kcal để tăng cơ`;
     }
-    
+
     const statTargetEl = document.getElementById('stat-target-calo');
     if (statTargetEl) statTargetEl.innerText = targetCalo + " kcal";
-    
+
     const statGoalEl = document.getElementById('stat-goal-desc');
     if (statGoalEl) statGoalEl.innerText = goalText;
-    
+
     const displayCaloEl = document.getElementById('target-calo-display');
     if (displayCaloEl) displayCaloEl.innerText = targetCalo;
-    
+
     const waterTargetEl = document.getElementById('water-target');
     if (waterTargetEl) waterTargetEl.innerText = Math.round(userProfile.weight * 35);
-    
+
+    // Mục tiêu đạm: 1.6g/kg (duy trì), 1.8g/kg (giảm cân, giữ cơ khi thiếu hụt calo), 2.0g/kg (tăng cơ)
+    let proteinFactor = userProfile.goal === 'lose' ? 1.8 : (userProfile.goal === 'gain' ? 2.0 : 1.6);
+    window.dailyProteinTarget = Math.round(userProfile.weight * proteinFactor);
+    // Mục tiêu xơ: ~14g cho mỗi 1000 kcal TDEE (khuyến nghị dinh dưỡng phổ biến)
+    window.dailyFiberTarget = Math.round((tdee / 1000) * 14);
+
+    const proTargetEl = document.getElementById('macro-pro-target');
+    if (proTargetEl) proTargetEl.innerText = window.dailyProteinTarget;
+    const fiberTargetEl = document.getElementById('macro-fiber-target');
+    if (fiberTargetEl) fiberTargetEl.innerText = window.dailyFiberTarget;
+
     updateWaterUI();
     updateFoodUI();
 }
@@ -315,11 +429,11 @@ window.calculateSleep = function() {
     let sDate = new Date(2000, 0, 1, sH, sM);
     let wDate = new Date(2000, 0, (wH < sH || (wH === sH && wM <= sM) ? 2 : 1), wH, wM);
     let diffMinutes = (wDate - sDate) / 60000;
-    
+
     let cycles = (diffMinutes / 90).toFixed(1);
     let cycleRemainder = diffMinutes % 90;
     let fatigueAnalysis = "";
-    
+
     if (cycleRemainder <= 15 || cycleRemainder >= 75) {
         fatigueAnalysis = "🟢 <b>Tỉnh táo!</b> Bạn thức dậy đúng giao điểm giữa các chu kỳ (ngủ nông). Cơ thể sẽ sảng khoái, không mệt mỏi.";
     } else {
@@ -354,9 +468,10 @@ window.calculateSleep = function() {
 window.saveSleepLog = function() {
     if (lastSleepResult) {
         sleepLogs[selectedDate] = lastSleepResult;
-        localStorage.setItem('helnai_sleep_logs', JSON.stringify(sleepLogs));
+        persist('helnai_sleep_logs', sleepLogs);
         renderSleep();
         renderDateBars();
+        renderOverviewReport();
         showToast("Đã lưu nhật ký giấc ngủ!");
         document.getElementById('btn-log-sleep').style.display = 'none';
     }
@@ -364,9 +479,10 @@ window.saveSleepLog = function() {
 
 window.deleteSleep = function() {
     delete sleepLogs[selectedDate];
-    localStorage.setItem('helnai_sleep_logs', JSON.stringify(sleepLogs));
+    persist('helnai_sleep_logs', sleepLogs);
     renderSleep();
     renderDateBars();
+    renderOverviewReport();
     showToast("Đã xóa nhật ký giấc ngủ!");
 };
 
@@ -389,6 +505,79 @@ function renderSleep() {
     }
 }
 
+/* ---------- 5B. NGỦ TRƯA (NAP) ---------- */
+let lastNapResult = null;
+
+window.calculateNap = function() {
+    const sTime = document.getElementById('nap-start-time').value;
+    const eTime = document.getElementById('nap-end-time').value;
+    if (!sTime || !eTime) { showToast("Nhập đủ giờ bắt đầu và kết thúc ngủ trưa!"); return; }
+
+    let [sH, sM] = sTime.split(':').map(Number);
+    let [eH, eM] = eTime.split(':').map(Number);
+
+    let sDate = new Date(2000, 0, 1, sH, sM);
+    let eDate = new Date(2000, 0, (eH < sH || (eH === sH && eM <= sM)) ? 2 : 1, eH, eM);
+    let diffMinutes = Math.round((eDate - sDate) / 60000);
+
+    let advice = "";
+    if (diffMinutes <= 30) {
+        advice = "🟢 <b>Power nap lý tưởng!</b> Dưới 30 phút giúp tỉnh táo nhanh, không gây lừ đừ (sleep inertia).";
+    } else if (diffMinutes <= 60) {
+        advice = "🟡 <b>Hơi dài.</b> 30-60 phút có thể khiến bạn hơi mệt/lờ đờ lúc mới dậy do rơi vào giấc ngủ sâu.";
+    } else {
+        advice = "🔴 <b>Ngủ trưa quá dài!</b> Trên 60 phút dễ ảnh hưởng tới giấc ngủ tối và gây cảm giác uể oải kéo dài.";
+    }
+
+    lastNapResult = { id: Date.now(), duration: diffMinutes, adviceMsg: advice };
+
+    document.getElementById('nap-result').innerHTML = `
+        <p>Thời lượng ngủ trưa: <b>${diffMinutes} phút</b></p>
+        <p>${advice}</p>
+    `;
+    document.getElementById('btn-log-nap').style.display = 'block';
+};
+
+window.saveNapLog = function() {
+    if (lastNapResult) {
+        if (!napLogs[selectedDate]) napLogs[selectedDate] = [];
+        napLogs[selectedDate].push(lastNapResult);
+        persist('helnai_nap_logs', napLogs);
+        renderNap();
+        renderOverviewReport();
+        showToast("Đã lưu giấc ngủ trưa!");
+        document.getElementById('btn-log-nap').style.display = 'none';
+    }
+};
+
+window.deleteNap = function(id) {
+    if (napLogs[selectedDate]) {
+        napLogs[selectedDate] = napLogs[selectedDate].filter(n => n.id !== id);
+        persist('helnai_nap_logs', napLogs);
+        renderNap();
+        renderOverviewReport();
+        showToast("Đã xóa!");
+    }
+};
+
+function renderNap() {
+    const historyEl = document.getElementById('nap-history');
+    if (!historyEl) return;
+    const logs = napLogs[selectedDate] || [];
+    if (logs.length === 0) {
+        historyEl.innerHTML = `<p class="suggestion">Chưa có giấc ngủ trưa nào cho ngày này.</p>`;
+        return;
+    }
+    historyEl.innerHTML = logs.map(n => `
+        <div class="history-item">
+            <div class="history-item-info">
+                <strong>Ngủ trưa: ${n.duration} phút</strong>
+            </div>
+            <button type="button" class="btn-delete" onclick="deleteNap(${n.id})">Xóa</button>
+        </div>
+    `).join('');
+}
+
 /* =========================================
    6. UỐNG NƯỚC
    ========================================= */
@@ -403,19 +592,21 @@ window.addWater = function() {
         time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
     });
 
-    localStorage.setItem('helnai_water_logs', JSON.stringify(waterLogs));
+    persist('helnai_water_logs', waterLogs);
     document.getElementById('water-custom-amount').value = '';
     updateWaterUI();
     renderDateBars();
+    renderOverviewReport();
     showToast("Đã thêm nước!");
 };
 
 window.deleteWater = function(id) {
     if (waterLogs[selectedDate]) {
         waterLogs[selectedDate] = waterLogs[selectedDate].filter(log => log.id !== id);
-        localStorage.setItem('helnai_water_logs', JSON.stringify(waterLogs));
+        persist('helnai_water_logs', waterLogs);
         updateWaterUI();
         renderDateBars();
+        renderOverviewReport();
         showToast("Đã xóa!");
     }
 };
@@ -426,7 +617,7 @@ function updateWaterUI() {
     const target = parseInt(targetEl.innerText) || 2000;
     const logs = waterLogs[selectedDate] || [];
     let totalWater = 0; let nonWater = 0;
-    
+
     logs.forEach(log => {
         totalWater += log.amount;
         if (log.type !== "Nước lọc") nonWater += log.amount;
@@ -435,14 +626,14 @@ function updateWaterUI() {
     document.getElementById('water-current').innerText = totalWater;
     let pct = Math.min((totalWater / target) * 100, 100);
     document.getElementById('water-circle').style.background = `conic-gradient(var(--primary) ${pct}%, var(--border) 0%)`;
-    
+
     const streakMsg = document.getElementById('water-streak-msg');
     if (totalWater >= target) {
         streakMsg.innerHTML = "🔥 Đã đạt Streak Uống Nước Đủ Hôm Nay!";
     } else {
         streakMsg.innerText = "";
     }
-    
+
     const warnEl = document.getElementById('water-warning');
     if (nonWater > 500) {
         warnEl.innerText = `⚠️ Nhắc nhở: Bạn đang nạp (${nonWater}ml) thức uống khác. Hãy ưu tiên nước lọc nhé!`;
@@ -461,11 +652,10 @@ function updateWaterUI() {
 }
 
 /* =========================================
-   7. ĂN UỐNG - TÌM KIẾM, BỘ CHỌN SỐ LƯỢNG RÕ RÀNG
-      & QUẢN LÝ MÓN ĂN ĐÃ LƯU (SỬA/XÓA)
+   7. ĂN UỐNG - TÌM KIẾM, SỐ LƯỢNG RÕ RÀNG,
+      NHẬP TAY ĐẦY ĐỦ MACRO, MỤC TIÊU THEO TỪNG NGƯỜI
    ========================================= */
 
-// Danh sách dự phòng các món ăn Việt Nam nấu thủ công phổ biến
 const localFallbackDatabase = {
     "phở bò": { cal: 350, p: 20, c: 45, f: 10, fb: 1 },
     "phở gà": { cal: 300, p: 18, c: 45, f: 8, fb: 1 },
@@ -479,12 +669,10 @@ const localFallbackDatabase = {
     "cơm trắng": { cal: 130, p: 2, c: 28, f: 0, fb: 0 }
 };
 
-// Chuẩn hóa tên món để tránh trùng lặp do khoảng trắng/hoa-thường
 function normalizeFoodName(name) {
     return name.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-// Hàm phụ trợ tạo Modal động bằng JS để giữ nguyên file index.html của bạn
 function createCustomModal(title, bodyHTML, confirmText, onConfirm) {
     let existing = document.getElementById('helnai-dynamic-modal');
     if (existing) existing.remove();
@@ -523,8 +711,6 @@ function createCustomModal(title, bodyHTML, confirmText, onConfirm) {
     });
 }
 
-/* ---------- BỘ CHỌN SỐ LƯỢNG (thay cho parse từ câu chữ) ---------- */
-// Yêu cầu HTML có: #food-qty (input number), #food-unit (select, tùy chọn)
 window.changeFoodQty = function(delta) {
     const el = document.getElementById('food-qty');
     if (!el) return;
@@ -547,7 +733,6 @@ function resetFoodQty() {
     if (unitEl) unitEl.value = 'unit';
 }
 
-// Hàm gọi API tìm kiếm từ Open Food Facts
 async function searchFoodFromAPI(foodQuery) {
     try {
         const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(foodQuery)}&search_simple=1&action=process&json=1&page_size=5`;
@@ -576,7 +761,6 @@ async function searchFoodFromAPI(foodQuery) {
     return null;
 }
 
-// Hàm đưa sản phẩm đã tính toán hệ số lượng vào nhật ký
 function addFoodToLog(displayName, baseNut, multiplier) {
     let finalCal = Math.round(baseNut.cal * multiplier);
     let finalP = Math.round(baseNut.p * multiplier);
@@ -594,9 +778,10 @@ function addFoodToLog(displayName, baseNut, multiplier) {
         fb: finalFb
     });
 
-    localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
+    persist('helnai_food_logs', foodLogs);
     updateFoodUI();
     renderDateBars();
+    renderOverviewReport();
     showToast(`Đã thêm: ${displayName} (~${finalCal} kcal)!`);
 }
 
@@ -611,7 +796,6 @@ window.addFood = async function() {
 
     if (!foodLogs[selectedDate]) foodLogs[selectedDate] = [];
 
-    // 1. Kiểm tra bộ nhớ cá nhân
     if (customFoodDatabase[lowerName]) {
         addFoodToLog(displayName, customFoodDatabase[lowerName], multiplier);
         nameInput.value = "";
@@ -621,10 +805,8 @@ window.addFood = async function() {
 
     showToast("🔍 Đang tìm kiếm thông tin dinh dưỡng...");
 
-    // 2. Tìm kiếm qua API
     let nut = await searchFoodFromAPI(rawName);
 
-    // 3. Sử dụng bộ dữ liệu dự phòng cục bộ
     if (!nut && localFallbackDatabase[lowerName]) {
         nut = localFallbackDatabase[lowerName];
     }
@@ -634,7 +816,6 @@ window.addFood = async function() {
         nameInput.value = "";
         resetFoodQty();
     } else {
-        // 4. Nếu không tìm thấy, hiện Modal nhập calo thủ công
         createCustomModal(
             "Tự nhập dinh dưỡng ✍️",
             `
@@ -681,9 +862,8 @@ window.addFood = async function() {
                     fb: parseFloat(document.getElementById('hd-input-fb').value) || 0
                 };
 
-                // Lưu lại món ăn tự định nghĩa này vào bộ nhớ (theo tên đã chuẩn hóa)
                 customFoodDatabase[lowerName] = baseNut;
-                localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
+                persist('helnai_custom_foods', customFoodDatabase);
 
                 addFoodToLog(displayName, baseNut, multiplier);
 
@@ -695,7 +875,6 @@ window.addFood = async function() {
     }
 };
 
-// Sửa lại lượng Calo của MỘT DÒNG LOG cụ thể trong ngày (không đụng tới bộ nhớ chung)
 window.editFoodCalories = function(id, foodName) {
     let currentLogs = foodLogs[selectedDate] || [];
     let item = currentLogs.find(l => l.id === id);
@@ -744,9 +923,10 @@ window.editFoodCalories = function(id, foodName) {
             item.f = parseFloat(document.getElementById('hd-edit-f').value) || 0;
             item.fb = parseFloat(document.getElementById('hd-edit-fb').value) || 0;
 
-            localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
+            persist('helnai_food_logs', foodLogs);
 
             updateFoodUI();
+            renderOverviewReport();
             showToast("Đã lưu thông tin dinh dưỡng mới!");
             closeModal();
         }
@@ -756,22 +936,19 @@ window.editFoodCalories = function(id, foodName) {
 window.deleteFood = function(id) {
     if (foodLogs[selectedDate]) {
         foodLogs[selectedDate] = foodLogs[selectedDate].filter(log => log.id !== id);
-        localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
+        persist('helnai_food_logs', foodLogs);
         updateFoodUI();
         renderDateBars();
+        renderOverviewReport();
         showToast("Đã xóa món!");
     }
 };
 
-/* ---------- QUẢN LÝ MÓN ĂN ĐÃ LƯU (customFoodDatabase) ---------- */
-// Cho phép xem/sửa/xóa các món đã lưu, độc lập với log theo ngày.
-// Gọi window.openFoodDbManager() từ 1 nút trong tab ăn uống, ví dụ:
-// <button type="button" onclick="openFoodDbManager()">📒 Món đã lưu</button>
-
+/* ---------- QUẢN LÝ MÓN ĂN ĐÃ LƯU ---------- */
 window.openFoodDbManager = function() {
     const keys = Object.keys(customFoodDatabase).sort();
     let bodyHTML = keys.length === 0
-        ? `<p class="suggestion">Chưa có món ăn tự lưu nào. Món bạn tự nhập calo sẽ xuất hiện ở đây.</p>`
+        ? `<p class="suggestion">Chưa có món ăn tự lưu nào.</p>`
         : `<ul style="list-style:none; padding:0; max-height:320px; overflow-y:auto;">` +
             keys.map(k => {
                 const f = customFoodDatabase[k];
@@ -836,7 +1013,6 @@ window.editCustomFoodEntry = function(key) {
             if (!newName) { showToast("Tên món không được để trống!"); return; }
             if (isNaN(newCal) || newCal < 0) { showToast("Số calo không hợp lệ!"); return; }
 
-            // Nếu đổi tên, xóa key cũ trước khi ghi key mới
             if (newName !== key) delete customFoodDatabase[key];
 
             customFoodDatabase[newName] = {
@@ -846,7 +1022,7 @@ window.editCustomFoodEntry = function(key) {
                 f: parseFloat(document.getElementById('hd-edit-db-f').value) || 0,
                 fb: parseFloat(document.getElementById('hd-edit-db-fb').value) || 0
             };
-            localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
+            persist('helnai_custom_foods', customFoodDatabase);
 
             showToast("Đã cập nhật món ăn!");
             closeModal();
@@ -857,7 +1033,7 @@ window.editCustomFoodEntry = function(key) {
 
 window.deleteCustomFoodEntry = function(key) {
     delete customFoodDatabase[key];
-    localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
+    persist('helnai_custom_foods', customFoodDatabase);
     showToast("Đã xóa món khỏi bộ nhớ!");
     openFoodDbManager();
 };
@@ -888,18 +1064,24 @@ function updateFoodUI() {
     let circleColor = tCal > tdee ? "var(--danger)" : "var(--primary)";
     document.getElementById('food-circle').style.background = `conic-gradient(${circleColor} ${pct}%, var(--border) 0%)`;
 
+    // STREAK có mức tối thiểu: dưới BMR không tính streak (nạp quá ít cũng không tốt)
     const streakMsg = document.getElementById('food-streak-msg');
-    if (tCal > 0 && tCal <= tdee) {
+    if (tCal >= bmr && tCal <= tdee) {
         streakMsg.innerHTML = "🔥 Streak Kiểm Soát Calo Tốt!";
     } else if (tCal > tdee) {
         streakMsg.innerHTML = `<span style="color:var(--danger)">⚠️ Đã vượt mức Calo tối đa!</span>`;
+    } else if (tCal > 0 && tCal < bmr) {
+        streakMsg.innerHTML = `<span style="color:var(--danger)">⚠️ Nạp quá ít, dưới mức tối thiểu ${bmr} kcal!</span>`;
     } else {
         streakMsg.innerText = "";
     }
 
+    // Lời khuyên đạm/xơ theo mục tiêu CÁ NHÂN (tính theo cân nặng & TDEE), không còn số cố định
+    const proteinTarget = window.dailyProteinTarget || 50;
+    const fiberTarget = window.dailyFiberTarget || 25;
     let advice = "";
-    if (tP < 40) advice += "Nên thêm đạm. ";
-    if (tFb < 12) advice += "Thêm chất xơ.";
+    if (tP < proteinTarget) advice += `Nên thêm đạm (còn thiếu ~${proteinTarget - tP}g). `;
+    if (tFb < fiberTarget) advice += `Thêm chất xơ (còn thiếu ~${Math.round(fiberTarget - tFb)}g).`;
     document.getElementById('food-advice').innerText = advice || "Dinh dưỡng khá cân bằng!";
 
     document.getElementById('food-list').innerHTML = logs.map(log => `
@@ -912,22 +1094,49 @@ function updateFoodUI() {
         </li>
     `).join('');
 }
+
 /* =========================================
-   8. THỂ THAO
+   8. THỂ THAO - GỢI Ý BÀI TẬP, NÚT TRẠNG THÁI ACTIVE,
+      LOẠI BÀI TẬP TỰ NHẬP
    ========================================= */
 window.setWorkoutStatus = function(status) {
     if (!workoutLogs[selectedDate]) workoutLogs[selectedDate] = { mode: 'normal', items: [] };
     workoutLogs[selectedDate].mode = status;
-    localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
+    persist('helnai_workout_logs', workoutLogs);
     renderWorkout();
     renderDateBars();
+    renderOverviewReport();
 };
 
+function syncWorkoutModeButtons(mode) {
+    document.querySelectorAll('.workout-mode-buttons button').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+}
+
+window.toggleCustomWorkoutType = function() {
+    const sel = document.getElementById('workout-type');
+    const customInput = document.getElementById('workout-type-custom');
+    if (!sel || !customInput) return;
+    customInput.style.display = sel.value === 'Khác' ? 'block' : 'none';
+    if (sel.value === 'Khác') customInput.focus();
+};
+
+function getFinalWorkoutType() {
+    const sel = document.getElementById('workout-type');
+    if (sel.value === 'Khác') {
+        const customVal = document.getElementById('workout-type-custom').value.trim();
+        return customVal || 'Khác';
+    }
+    return sel.value;
+}
+
 window.addWorkout = function() {
-    const text = document.getElementById('workout-input').value;
+    const inputEl = document.getElementById('workout-input');
+    const text = inputEl.value;
     const duration = parseInt(document.getElementById('workout-duration').value) || 30;
-    const type = document.getElementById('workout-type').value;
-    
+    const type = getFinalWorkoutType();
+
     if (!text.trim()) { showToast("Nhập tên bài tập nha!"); return; }
 
     if (!workoutLogs[selectedDate]) workoutLogs[selectedDate] = { mode: 'normal', items: [] };
@@ -937,29 +1146,95 @@ window.addWorkout = function() {
         id: Date.now(), text: text, duration: duration, type: type, done: false
     });
 
-    localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
-    document.getElementById('workout-input').value = "";
+    persist('helnai_workout_logs', workoutLogs);
+
+    // Lưu vào lịch sử bài tập để gợi ý lần sau (tần suất càng dùng nhiều càng lên top)
+    const key = normalizeFoodName(text);
+    const existing = workoutHistoryDB[key];
+    workoutHistoryDB[key] = {
+        text: text,
+        duration: duration,
+        type: type,
+        count: (existing?.count || 0) + 1
+    };
+    persist('helnai_workout_history', workoutHistoryDB);
+    renderWorkoutSuggestions();
+
+    inputEl.value = "";
     document.getElementById('workout-duration').value = "";
+    if (document.getElementById('workout-type-custom')) {
+        document.getElementById('workout-type-custom').value = "";
+        document.getElementById('workout-type-custom').style.display = 'none';
+    }
+    document.getElementById('workout-type').value = "Fullbody";
+
     renderWorkout();
     renderDateBars();
+    renderOverviewReport();
     showToast("Đã thêm bài tập!");
 };
+
+// Điền nhanh 1 bài tập từ gợi ý vào form
+window.fillWorkoutFromSuggestion = function(key) {
+    const item = workoutHistoryDB[key];
+    if (!item) return;
+    document.getElementById('workout-input').value = item.text;
+    document.getElementById('workout-duration').value = item.duration;
+    const sel = document.getElementById('workout-type');
+    const knownTypes = ['Fullbody', 'Leg day', 'Upper body', 'Cardio'];
+    if (knownTypes.includes(item.type)) {
+        sel.value = item.type;
+        document.getElementById('workout-type-custom').style.display = 'none';
+    } else {
+        sel.value = 'Khác';
+        const customInput = document.getElementById('workout-type-custom');
+        customInput.style.display = 'block';
+        customInput.value = item.type;
+    }
+};
+
+// Vẽ danh sách gợi ý (top bài tập dùng nhiều nhất) + datalist cho autocomplete
+function renderWorkoutSuggestions() {
+    const datalistEl = document.getElementById('workout-suggestions');
+    const quickPicksEl = document.getElementById('workout-quick-picks');
+
+    const entries = Object.entries(workoutHistoryDB).sort((a, b) => b[1].count - a[1].count);
+
+    if (datalistEl) {
+        datalistEl.innerHTML = entries.map(([key, val]) => `<option value="${val.text}"></option>`).join('');
+    }
+
+    if (quickPicksEl) {
+        const top = entries.slice(0, 6);
+        if (top.length === 0) {
+            quickPicksEl.innerHTML = `<span style="font-size:12px; color:var(--text-sub);">Chưa có bài tập nào được lưu. Thêm bài tập để lần sau được gợi ý nhanh!</span>`;
+        } else {
+            quickPicksEl.innerHTML = top.map(([key, val]) => `
+                <button type="button" class="chip-btn" onclick="fillWorkoutFromSuggestion('${key}')">
+                    ${val.text} <span style="opacity:0.6; font-size:11px;">(${val.duration}p)</span>
+                </button>
+            `).join('');
+        }
+    }
+}
 
 window.deleteWorkout = function(id) {
     if (workoutLogs[selectedDate] && workoutLogs[selectedDate].items) {
         workoutLogs[selectedDate].items = workoutLogs[selectedDate].items.filter(w => w.id !== id);
-        localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
+        persist('helnai_workout_logs', workoutLogs);
         renderWorkout();
         renderDateBars();
+        renderOverviewReport();
     }
 };
 
 window.toggleWorkout = function(id) {
     if (workoutLogs[selectedDate] && workoutLogs[selectedDate].items) {
         workoutLogs[selectedDate].items = workoutLogs[selectedDate].items.map(w => w.id === id ? { ...w, done: !w.done } : w);
-        localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
+        persist('helnai_workout_logs', workoutLogs);
         renderWorkout();
         renderDateBars();
+        renderOverviewReport();
     }
 };
 
@@ -967,7 +1242,9 @@ function renderWorkout() {
     const dayData = workoutLogs[selectedDate] || { mode: 'normal', items: [] };
     const statusMsg = document.getElementById('workout-status-msg');
     const items = dayData.items || [];
-    
+
+    syncWorkoutModeButtons(dayData.mode || 'normal');
+
     let totalMinutes = 0;
     items.forEach(w => { if(w.done) totalMinutes += w.duration; });
 
@@ -986,7 +1263,7 @@ function renderWorkout() {
     const listEl = document.getElementById('workout-list');
     if (!listEl) return;
     listEl.innerHTML = items.map(w => `
-        <li class="history-item">
+        <li class="history-item ${w.done ? 'workout-done' : ''}">
             <div style="display:flex; align-items:center; gap:10px;">
                 <input type="checkbox" ${w.done ? 'checked' : ''} onchange="toggleWorkout(${w.id})">
                 <span style="${w.done ? 'text-decoration: line-through; opacity:0.6;' : ''}">[${w.type}] ${w.text} (${w.duration} phút)</span>
@@ -997,11 +1274,69 @@ function renderWorkout() {
 }
 
 /* =========================================
-   9. KHỞI CHẠY HỆ THỐNG AN TOÀN
+   9. TỔNG QUAN - BÁO CÁO NGÀY
+   ========================================= */
+function renderOverviewReport() {
+    const el = document.getElementById('daily-report-card');
+    if (!el) return;
+
+    const dateLabel = selectedDate === new Date().toISOString().split('T')[0] ? "Hôm nay" : selectedDate;
+
+    // Giấc ngủ
+    const sleep = sleepLogs[selectedDate];
+    const sleepHTML = sleep
+        ? `${sleep.duration} (${sleep.cycles} chu kỳ) ${sleep.isStreak ? '🔥' : '😴'}`
+        : `<span style="color:var(--text-sub)">Chưa ghi nhận</span>`;
+
+    // Ngủ trưa
+    const naps = napLogs[selectedDate] || [];
+    const napTotal = naps.reduce((s, n) => s + n.duration, 0);
+    const napHTML = naps.length > 0 ? `${napTotal} phút (${naps.length} lần)` : `<span style="color:var(--text-sub)">Không có</span>`;
+
+    // Nước
+    const waterTarget = parseInt(document.getElementById('water-target')?.innerText) || 2000;
+    const waterLogsToday = waterLogs[selectedDate] || [];
+    const waterTotal = waterLogsToday.reduce((s, l) => s + l.amount, 0);
+    const waterHTML = `${waterTotal} / ${waterTarget} ml ${waterTotal >= waterTarget ? '🔥' : '💧'}`;
+
+    // Ăn uống
+    const bmr = parseInt(document.getElementById('stat-bmr')?.innerText) || 1200;
+    const tdee = parseInt(document.getElementById('stat-tdee')?.innerText) || 2000;
+    const foodLogsToday = foodLogs[selectedDate] || [];
+    const foodTotal = foodLogsToday.reduce((s, l) => s + l.cal, 0);
+    let foodStatusIcon = '🍏';
+    if (foodTotal > 0) foodStatusIcon = (foodTotal >= bmr && foodTotal <= tdee) ? '🔥' : '⚠️';
+    const foodHTML = `${foodTotal} kcal (khoảng ${bmr}-${tdee} kcal) ${foodStatusIcon}`;
+
+    // Vận động
+    const workoutDay = workoutLogs[selectedDate];
+    let workoutHTML = `<span style="color:var(--text-sub)">Chưa ghi nhận</span>`;
+    if (workoutDay) {
+        if (workoutDay.mode === 'off') workoutHTML = "🛌 Ngày nghỉ";
+        else if (workoutDay.mode === 'cheat') workoutHTML = "🍕 Cheat Day";
+        else {
+            const items = workoutDay.items || [];
+            const doneMin = items.filter(i => i.done).reduce((s, i) => s + i.duration, 0);
+            workoutHTML = items.length > 0 ? `${doneMin} phút đã hoàn thành / ${items.length} bài` : `<span style="color:var(--text-sub)">Chưa có bài tập</span>`;
+        }
+    }
+
+    el.innerHTML = `
+        <h3 style="margin-bottom:14px;">Báo cáo ngày: ${dateLabel} 📋</h3>
+        <div class="report-row"><span>🌙 Giấc ngủ</span><strong>${sleepHTML}</strong></div>
+        <div class="report-row"><span>😴 Ngủ trưa</span><strong>${napHTML}</strong></div>
+        <div class="report-row"><span>💧 Nước</span><strong>${waterHTML}</strong></div>
+        <div class="report-row"><span>🍏 Ăn uống</span><strong>${foodHTML}</strong></div>
+        <div class="report-row"><span>🏃 Vận động</span><strong>${workoutHTML}</strong></div>
+    `;
+}
+
+/* =========================================
+   10. KHỞI CHẠY HỆ THỐNG AN TOÀN
    ========================================= */
 document.addEventListener('DOMContentLoaded', () => {
     renderDateBars();
-    
+
     const userModal = document.getElementById('user-modal');
     if (!userProfile) {
         if (userModal) userModal.classList.add('active');
@@ -1009,9 +1344,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userModal) userModal.classList.remove('active');
         calculateAndDisplayStats();
     }
-    
+
     renderSleep();
+    renderNap();
     updateWaterUI();
     updateFoodUI();
     renderWorkout();
+    renderWorkoutSuggestions();
+    renderOverviewReport();
 });
