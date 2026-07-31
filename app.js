@@ -461,100 +461,222 @@ function updateWaterUI() {
 }
 
 /* =========================================
-   7. ĂN UỐNG & BỘ NÃO GEMINI AI (ĐÃ TỐI ƯU)
+   7. ĂN UỐNG - TÍCH HỢP API OPEN FOOD FACTS (KHÔNG CẦN KEY)
    ========================================= */
-const DEFAULT_GEMINI_API_KEY = "AIzaSyBuceM7Qc0Jjhmm3orIo5p2G9ubM886FkU";
 
-async function fetchNutritionFromGemini(foodQuery) {
-    let lowerName = foodQuery.toLowerCase().trim();
+// Danh sách dự phòng các món ăn Việt Nam nấu thủ công phổ biến (vì các API quốc tế thường thiếu món ăn gia đình Việt)
+const localFallbackDatabase = {
+    "phở bò": { cal: 350, p: 20, c: 45, f: 10, fb: 1 },
+    "phở gà": { cal: 300, p: 18, c: 45, f: 8, fb: 1 },
+    "bún chả": { cal: 450, p: 22, c: 55, f: 15, fb: 2 },
+    "bánh mì kẹp thịt": { cal: 400, p: 15, c: 50, f: 15, fb: 2 },
+    "bánh mì trứng": { cal: 320, p: 11, c: 40, f: 12, fb: 1 },
+    "cơm tấm sườn": { cal: 527, p: 25, c: 70, f: 17, fb: 1 },
+    "hủ tiếu": { cal: 380, p: 15, c: 55, f: 10, fb: 1 },
+    "trứng luộc": { cal: 72, p: 6, c: 0, f: 5, fb: 0 },
+    "ức gà luộc": { cal: 165, p: 31, c: 0, f: 3, fb: 0 },
+    "cơm trắng": { cal: 130, p: 2, c: 28, f: 0, fb: 0 }
+};
 
-    // 1. Kiểm tra cache cục bộ trước để tiết kiệm API
-    if (customFoodDatabase[lowerName]) {
-        return customFoodDatabase[lowerName];
-    }
-
-    const activeApiKey = storedApiKey || DEFAULT_GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeApiKey}`;
-
-    // Prompt được tinh chỉnh để ép AI trả về JSON sạch 100%
-    const promptText = `Bạn là một máy quét dinh dưỡng. Hãy phân tích: "${foodQuery}". 
-Chỉ trả về duy nhất 1 chuỗi JSON theo cấu trúc này, không thêm văn bản gì khác:
-{"cal": số_calo, "p": gram_dam, "c": gram_carb, "f": gram_fat, "fb": gram_xo}
-Ví dụ: "1 bát phở" -> {"cal": 450, "p": 20, "c": 50, "f": 15, "fb": 2}`;
-
+// Hàm gọi API tìm kiếm từ Open Food Facts
+async function searchFoodFromAPI(foodQuery) {
     try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: promptText }] }]
-            })
-        });
-
-        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+        const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(foodQuery)}&search_simple=1&action=process&json=1&page_size=5`;
+        const response = await fetch(url);
+        if (!response.ok) return null;
 
         const data = await response.json();
-        let rawText = data.candidates[0].content.parts[0].text.trim();
-        
-        // Xử lý loại bỏ markdown nếu AI lỡ tay thêm vào
-        rawText = rawText.replace(/```json|```/g, "").trim();
-        
-        const parsed = JSON.parse(rawText);
-        
-        // Trả về dữ liệu chuẩn (đảm bảo là số)
-        return {
-            cal: Math.round(Number(parsed.cal)) || 0,
-            p: Math.round(Number(parsed.p)) || 0,
-            c: Math.round(Number(parsed.c)) || 0,
-            f: Math.round(Number(parsed.f)) || 0,
-            fb: Math.round(Number(parsed.fb)) || 0
-        };
-
+        if (data && data.products && data.products.length > 0) {
+            // Tìm sản phẩm đầu tiên có đầy đủ dữ liệu calo
+            for (let product of data.products) {
+                const nut = product.nutriments;
+                if (nut && (nut['energy-kcal_100g'] !== undefined || nut['energy-kcal'] !== undefined)) {
+                    return {
+                        name: product.product_name_vi || product.product_name || foodQuery,
+                        cal: Math.round(nut['energy-kcal_100g'] || nut['energy-kcal'] || 0),
+                        p: Math.round(nut['proteins_100g'] || 0),
+                        c: Math.round(nut['carbohydrates_100g'] || 0),
+                        f: Math.round(nut['fat_100g'] || 0),
+                        fb: parseFloat(nut['fiber_100g'] || 0)
+                    };
+                }
+            }
+        }
     } catch (error) {
-        console.error("Lỗi Gemini:", error);
-        showToast("⚠️ Không thể phân tích món này, đang dùng dữ liệu mặc định.");
-        return { cal: 150, p: 5, c: 20, f: 5, fb: 1 }; // Giá trị an toàn khi lỗi
+        console.error("Lỗi khi kết nối với API thực phẩm:", error);
     }
+    return null;
 }
 
 window.addFood = async function() {
     const nameInput = document.getElementById('food-input');
-    const btn = document.querySelector('button[onclick="addFood()"]');
     const name = nameInput.value.trim();
-
     if (!name) { showToast("Nhập tên món ăn nha!"); return; }
 
-    // Hiệu ứng Loading
-    const originalText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Đang tính...";
-    showToast("🧠 Gemini AI đang phân tích dinh dưỡng...");
+    const lowerName = name.toLowerCase();
+    if (!foodLogs[selectedDate]) foodLogs[selectedDate] = [];
 
-    try {
-        const nut = await fetchNutritionFromGemini(name);
-        
-        if (!foodLogs[selectedDate]) foodLogs[selectedDate] = [];
-        
-        const newFoodItem = { 
-            id: Date.now(), 
-            name: name, 
-            ...nut 
-        };
-
-        foodLogs[selectedDate].unshift(newFoodItem);
+    // 1. Kiểm tra bộ nhớ tạm (các món bạn đã sửa hoặc thêm trước đây)
+    if (customFoodDatabase[lowerName]) {
+        let nut = customFoodDatabase[lowerName];
+        foodLogs[selectedDate].unshift({ id: Date.now(), name: name, ...nut });
         localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
-        
         nameInput.value = "";
         updateFoodUI();
         renderDateBars();
-        showToast(`Đã thêm: ${name} (${nut.cal} kcal)`);
-    } catch (err) {
-        showToast("Lỗi hệ thống, vui lòng thử lại!");
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
+        showToast(`Đã thêm ${name} từ bộ nhớ cá nhân!`);
+        return;
+    }
+
+    showToast("🔍 Đang tìm kiếm thông tin dinh dưỡng...");
+
+    // 2. Tìm kiếm từ API Open Food Facts
+    let nut = await searchFoodFromAPI(name);
+
+    // 3. Nếu API không có, tìm kiếm trong danh sách dự phòng các món Việt Nam nấu thủ công
+    if (!nut && localFallbackDatabase[lowerName]) {
+        nut = localFallbackDatabase[lowerName];
+    }
+
+    // 4. Nếu tìm thấy dữ liệu (Từ API hoặc Từ danh sách dự phòng)
+    if (nut) {
+        foodLogs[selectedDate].unshift({
+            id: Date.now(),
+            name: nut.name || name,
+            cal: nut.cal,
+            p: nut.p,
+            c: nut.c,
+            f: nut.f,
+            fb: nut.fb
+        });
+        localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
+        nameInput.value = "";
+        updateFoodUI();
+        renderDateBars();
+        showToast(`Đã thêm ${nut.name} (~${nut.cal} kcal)!`);
+    } else {
+        // 5. Nếu hoàn toàn không tìm thấy, thông báo để người dùng tự nhập thủ công
+        showToast("⚠️ Không tìm thấy món này trong thư viện!");
+        
+        let manualCalStr = prompt(`Không tìm thấy món "${name}". Bạn hãy tự nhập lượng calo ước lượng cho món này nhé:`);
+        if (manualCalStr === null) return; // Người dùng ấn Hủy
+
+        let manualCal = parseInt(manualCalStr);
+        if (isNaN(manualCal) || manualCal < 0) {
+            showToast("Số calo nhập vào không hợp lệ!");
+            return;
+        }
+
+        // Tự động phân bổ dinh dưỡng cơ bản dựa trên calo nhập vào
+        let manualNut = {
+            cal: manualCal,
+            p: Math.round(manualCal * 0.15 / 4),
+            c: Math.round(manualCal * 0.5 / 4),
+            f: Math.round(manualCal * 0.35 / 9),
+            fb: 0
+        };
+
+        // Lưu món ăn mới này vào danh sách cá nhân để lần sau tìm kiếm sẽ có ngay
+        customFoodDatabase[lowerName] = manualNut;
+        localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
+
+        foodLogs[selectedDate].unshift({ id: Date.now(), name: name, ...manualNut });
+        localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
+        nameInput.value = "";
+        updateFoodUI();
+        renderDateBars();
+        showToast(`Đã lưu và thêm món mới: ${name}!`);
     }
 };
+
+window.editFoodCalories = function(id, foodName) {
+    let currentLogs = foodLogs[selectedDate] || [];
+    let item = currentLogs.find(l => l.id === id);
+    if (!item) return;
+
+    let newCalStr = prompt(`Nhập lại số Calo chuẩn cho món "${foodName}":`, item.cal);
+    if (newCalStr === null) return;
+    let newCal = parseInt(newCalStr);
+
+    if (isNaN(newCal) || newCal < 0) {
+        showToast("Số calo không hợp lệ!");
+        return;
+    }
+
+    item.cal = newCal;
+    item.p = Math.round(newCal * 0.15 / 4);
+    item.c = Math.round(newCal * 0.5 / 4);
+    item.f = Math.round(newCal * 0.35 / 9);
+
+    localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
+
+    customFoodDatabase[foodName.toLowerCase().trim()] = { cal: item.cal, p: item.p, c: item.c, f: item.f, fb: item.fb };
+    localStorage.setItem('helnai_custom_foods', JSON.stringify(customFoodDatabase));
+
+    updateFoodUI();
+    showToast("Đã lưu số Calo mới vào bộ nhớ!");
+};
+
+window.deleteFood = function(id) {
+    if (foodLogs[selectedDate]) {
+        foodLogs[selectedDate] = foodLogs[selectedDate].filter(log => log.id !== id);
+        localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
+        updateFoodUI();
+        renderDateBars();
+        showToast("Đã xóa món!");
+    }
+};
+
+function updateFoodUI() {
+    const targetEl = document.getElementById('target-calo-display');
+    if (!targetEl) return;
+    const target = parseInt(targetEl.innerText) || 2000;
+    const bmr = parseInt(document.getElementById('stat-bmr').innerText) || 1200;
+    const tdee = parseInt(document.getElementById('stat-tdee').innerText) || 2000;
+    
+    const logs = foodLogs[selectedDate] || [];
+    let tCal=0, tP=0, tC=0, tF=0, tFb=0;
+    
+    logs.forEach(log => {
+        tCal += log.cal; tP += log.p; tC += log.c; tF += log.f; tFb += log.fb;
+    });
+
+    document.getElementById('food-current').innerText = tCal;
+    document.getElementById('macro-pro').innerText = tP;
+    document.getElementById('macro-carb').innerText = tC;
+    document.getElementById('macro-fat').innerText = tF;
+    document.getElementById('macro-fiber').innerText = Math.round(tFb);
+
+    document.getElementById('food-range-info').innerText = `Tối thiểu: ${bmr} kcal | Tối đa (TDEE): ${tdee} kcal`;
+
+    let pct = Math.min((tCal / target) * 100, 100);
+    let circleColor = tCal > tdee ? "var(--danger)" : "var(--primary)";
+    document.getElementById('food-circle').style.background = `conic-gradient(${circleColor} ${pct}%, var(--border) 0%)`;
+
+    const streakMsg = document.getElementById('food-streak-msg');
+    if (tCal > 0 && tCal <= tdee) {
+        streakMsg.innerHTML = "🔥 Streak Kiểm Soát Calo Tốt!";
+    } else if (tCal > tdee) {
+        streakMsg.innerHTML = `<span style="color:var(--danger)">⚠️ Đã vượt mức Calo tối đa!</span>`;
+    } else {
+        streakMsg.innerText = "";
+    }
+
+    let advice = "";
+    if (tP < 40) advice += "Nên thêm đạm. ";
+    if (tFb < 12) advice += "Thêm chất xơ.";
+    document.getElementById('food-advice').innerText = advice || "Dinh dưỡng khá cân bằng!";
+
+    document.getElementById('food-list').innerHTML = logs.map(log => `
+        <li class="history-item" style="cursor: pointer;" title="Bấm vào để sửa số Calo">
+            <div class="history-item-info" onclick="editFoodCalories(${log.id}, '${log.name}')">
+                <strong>${log.name} (${log.cal} kcal) ✏️</strong>
+                <span style="font-size:12px; color:var(--text-sub)">Đ: ${log.p}g | B: ${log.c}g | Béo: ${log.f}g | Xơ: ${log.fb}g</span>
+            </div>
+            <button type="button" class="btn-delete" onclick="deleteFood(${log.id})">Xóa</button>
+        </li>
+    `).join('');
+}
 
 // Giữ lại các hàm editFoodCalories, deleteFood và updateFoodUI của bạn bên dưới...
 /* =========================================
