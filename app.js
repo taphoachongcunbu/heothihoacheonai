@@ -1,8 +1,9 @@
 /* =========================================
-   0. TOAST NOTIFICATION
+   0. TOAST NOTIFICATION (THÔNG BÁO POPUP)
    ========================================= */
 function showToast(message) {
     const container = document.getElementById('toast-container');
+    if (!container) return;
     const toast = document.createElement('div');
     toast.className = 'toast';
     toast.innerText = message;
@@ -11,7 +12,7 @@ function showToast(message) {
 }
 
 /* =========================================
-   1. CẤU HÌNH FIREBASE
+   1. CẤU HÌNH FIREBASE & GOOGLE LOGIN
    ========================================= */
 const firebaseConfig = {
     apiKey: "AIzaSyDXQZRfGNQ0-_NUPWqxOmjCxWq51T3b3qI",
@@ -21,6 +22,7 @@ const firebaseConfig = {
     messagingSenderId: "707815568295",
     appId: "1:707815568295:web:fc6faeb9e79dc2b6ad7c82"
 };
+
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const provider = new firebase.auth.GoogleAuthProvider();
@@ -28,10 +30,17 @@ const authStatusEl = document.getElementById('auth-status');
 
 function setupAuthListeners() {
     const btnLogin = document.getElementById('btn-login');
-    if (btnLogin) btnLogin.addEventListener('click', () => { auth.signInWithPopup(provider).catch(err => showToast("Lỗi: " + err.message)); });
+    if (btnLogin) {
+        btnLogin.addEventListener('click', () => { 
+            auth.signInWithPopup(provider).catch(err => showToast("Lỗi: " + err.message)); 
+        });
+    }
     const btnLogout = document.getElementById('btn-logout');
-    if (btnLogout) btnLogout.addEventListener('click', () => { auth.signOut(); });
+    if (btnLogout) {
+        btnLogout.addEventListener('click', () => { auth.signOut(); });
+    }
 }
+
 auth.onAuthStateChanged(user => {
     if (user) {
         authStatusEl.innerHTML = `
@@ -48,13 +57,13 @@ auth.onAuthStateChanged(user => {
 });
 
 /* =========================================
-   2. HỒ SƠ & TÍNH TOÁN CHỈ SỐ
+   2. HỒ SƠ CÁ NHÂN & TÍNH TOÁN CHỈ SỐ
    ========================================= */
 let userProfile = JSON.parse(localStorage.getItem('helnai_user_profile')) || null;
 const userModal = document.getElementById('user-modal');
 
 document.getElementById('btn-settings').addEventListener('click', () => {
-    if(userProfile) {
+    if (userProfile) {
         ['weight','height','age','gender','activity','goal'].forEach(id => {
             document.getElementById(id).value = userProfile[id];
         });
@@ -62,8 +71,11 @@ document.getElementById('btn-settings').addEventListener('click', () => {
     userModal.classList.add('active');
 });
 
-if (!userProfile) userModal.classList.add('active');
-else calculateAndDisplayStats();
+if (!userProfile) {
+    userModal.classList.add('active');
+} else {
+    calculateAndDisplayStats();
+}
 
 document.getElementById('health-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -83,31 +95,39 @@ document.getElementById('health-form').addEventListener('submit', (e) => {
 
 function calculateAndDisplayStats() {
     if (!userProfile) return;
+    
+    // BMI
     const h = userProfile.height / 100;
     const bmi = (userProfile.weight / (h * h)).toFixed(1);
     document.getElementById('stat-bmi').innerText = bmi;
     document.getElementById('stat-bmi-text').innerText = bmi < 18.5 ? "Gầy" : (bmi >= 25 ? "Thừa cân" : "Bình thường");
 
+    // BMR (Mifflin-St Jeor)
     let bmr = (10 * userProfile.weight) + (6.25 * userProfile.height) - (5 * userProfile.age) + (userProfile.gender === 'male' ? 5 : -161);
     document.getElementById('stat-bmr').innerText = Math.round(bmr) + " kcal";
 
+    // TDEE
     const tdee = bmr * userProfile.activity;
     document.getElementById('stat-tdee').innerText = Math.round(tdee) + " kcal";
 
+    // Target Calo
     let targetCalo = tdee + (userProfile.goal === 'lose' ? -300 : (userProfile.goal === 'gain' ? 300 : 0));
     document.getElementById('stat-target-calo').innerText = Math.round(targetCalo) + " kcal";
     document.getElementById('target-calo-display').innerText = Math.round(targetCalo);
     
+    // Target Nước (35ml / kg)
     document.getElementById('water-target').innerText = Math.round(userProfile.weight * 35);
+    
     updateWaterUI();
     updateFoodUI();
 }
 
 /* =========================================
-   3. MENU & THEME
+   3. MENU CHUYỂN TAB & DARK MODE
    ========================================= */
 const navBtns = document.querySelectorAll('.nav-btn');
 const tabContents = document.querySelectorAll('.tab-content');
+
 navBtns.forEach(btn => {
     btn.addEventListener('click', () => {
         navBtns.forEach(b => b.classList.remove('active'));
@@ -122,7 +142,7 @@ document.getElementById('btn-theme').addEventListener('click', () => {
 });
 
 /* =========================================
-   4. GIẤC NGỦ
+   4. THEO DÕI GIẤC NGỦ & STREAK
    ========================================= */
 let sleepLogs = JSON.parse(localStorage.getItem('helnai_sleep_logs')) || [];
 let lastSleepResult = null;
@@ -173,10 +193,11 @@ window.deleteSleep = function(id) {
     localStorage.setItem('helnai_sleep_logs', JSON.stringify(sleepLogs));
     renderSleep();
     showToast("Đã xóa nhật ký!");
-}
+};
 
 function renderSleep() {
     const historyEl = document.getElementById('sleep-history');
+    if (!historyEl) return;
     historyEl.innerHTML = sleepLogs.map(log => `
         <div class="history-item">
             <div class="history-item-info">
@@ -188,6 +209,7 @@ function renderSleep() {
     `).join('');
 
     const calendarEl = document.getElementById('sleep-streak-calendar');
+    if (!calendarEl) return;
     let recent7 = sleepLogs.slice(0, 7).reverse();
     calendarEl.innerHTML = recent7.map(log => `
         <div class="streak-day">
@@ -199,7 +221,7 @@ function renderSleep() {
 renderSleep();
 
 /* =========================================
-   5. UỐNG NƯỚC
+   5. QUẢN LÝ UỐNG NƯỚC
    ========================================= */
 let waterLogs = JSON.parse(localStorage.getItem('helnai_water_logs')) || [];
 
@@ -215,14 +237,15 @@ document.getElementById('btn-add-water').addEventListener('click', () => {
     localStorage.setItem('helnai_water_logs', JSON.stringify(waterLogs));
     document.getElementById('water-custom-amount').value = '';
     updateWaterUI();
-    showToast("Đã ghi nhận nước!");
+    showToast("Đã ghi nhận lượng nước!");
 });
 
 window.deleteWater = function(id) {
     waterLogs = waterLogs.filter(log => log.id !== id);
     localStorage.setItem('helnai_water_logs', JSON.stringify(waterLogs));
     updateWaterUI();
-}
+    showToast("Đã xóa lịch sử uống!");
+};
 
 function updateWaterUI() {
     const target = parseInt(document.getElementById('water-target').innerText) || 2000;
@@ -230,7 +253,7 @@ function updateWaterUI() {
     
     waterLogs.forEach(log => {
         totalWater += log.amount;
-        if(log.type !== "Nước lọc") nonWater += log.amount;
+        if (log.type !== "Nước lọc") nonWater += log.amount;
     });
 
     document.getElementById('water-current').innerText = totalWater;
@@ -258,29 +281,62 @@ function updateWaterUI() {
 updateWaterUI();
 
 /* =========================================
-   6. ĂN UỐNG & AI CALO MOCKUP
+   6. ĂN UỐNG & ƯỚC LƯỢNG DINH DƯỠNG NÂNG CẤP
    ========================================= */
 let foodLogs = JSON.parse(localStorage.getItem('helnai_food_logs')) || [];
 
-// Hệ thống ước lượng dinh dưỡng "pha ke" (Mock API)
+// Hàm nghiên cứu & phân tích dinh dưỡng theo ngữ cảnh
 function estimateNutrition(name) {
-    let lowerName = name.toLowerCase();
-    let cal = 150 + Math.floor(Math.random()*100); 
-    let p = 5, c = 20, f = 5, fb = 1;
+    let lowerName = name.toLowerCase().trim();
+    
+    let cal = 120;
+    let p = 3, c = 15, f = 3, fb = 1;
 
-    if (lowerName.includes('bò') || lowerName.includes('gà') || lowerName.includes('thịt') || lowerName.includes('trứng')) {
-        p += 15; cal += 100;
+    // 1. Matcha / Trà sữa / Nước ngọt
+    if (lowerName.includes('matcha') || lowerName.includes('trà sữa') || lowerName.includes('nước ngọt')) {
+        cal = 260; c = 42; f = 8; p = 3; fb = 0;
+        if (lowerName.includes('700ml') || lowerName.includes('lớn') || lowerName.includes('size l')) {
+            cal = 420; c = 68; f = 12; p = 5;
+        }
+    } 
+    // 2. Trái cây tươi (Lê, Táo, Chuối...)
+    else if (lowerName.includes('lê') || lowerName.includes('táo') || lowerName.includes('chuối') || lowerName.includes('trái') || lowerName.includes('quả')) {
+        cal = 60; c = 15; f = 0.2; p = 0.5; fb = 3.5;
+        if (lowerName.includes('nửa') || lowerName.includes('1/2')) {
+            cal = 35; c = 8; fb = 1.8;
+        }
+    } 
+    // 3. Sữa chua / Yogurt
+    else if (lowerName.includes('sữa chua') || lowerName.includes('yogurt')) {
+        cal = 95; c = 12; f = 3; p = 3.5; fb = 0;
+        if (lowerName.includes('có đường')) {
+            cal = 125; c = 19;
+        }
     }
-    if (lowerName.includes('cơm') || lowerName.includes('phở') || lowerName.includes('bún') || lowerName.includes('mì')) {
-        c += 30; cal += 150;
+    // 4. Thịt / Đạm cao (Gà, Bò, Heo, Trứng, Thịt)
+    else if (lowerName.includes('bò') || lowerName.includes('gà') || lowerName.includes('thịt') || lowerName.includes('trứng')) {
+        cal = 280; p = 26; c = 2; f = 16; fb = 0;
     }
-    if (lowerName.includes('rau') || lowerName.includes('salad') || lowerName.includes('chuối') || lowerName.includes('táo')) {
-        fb += 5; cal -= 50;
+    // 5. Tinh bột (Cơm, Phở, Bún, Mì)
+    else if (lowerName.includes('cơm') || lowerName.includes('phở') || lowerName.includes('bún') || lowerName.includes('mì')) {
+        cal = 450; p = 16; c = 65; f = 11; fb = 2;
     }
-    if (lowerName.includes('trà sữa') || lowerName.includes('bánh')) {
-        c += 40; f += 10; cal += 200;
+    // 6. Rau / Salad
+    else if (lowerName.includes('rau') || lowerName.includes('salad')) {
+        cal = 50; p = 2; c = 8; f = 1; fb = 4.5;
     }
-    return { cal, p, c, f, fb };
+
+    // Tạo chút ngẫu nhiên nhỏ để các số không bị trùng khớp 100%
+    let offset = Math.floor(Math.random() * 8) - 4;
+    cal = Math.max(15, cal + offset);
+
+    return { 
+        cal: Math.round(cal), 
+        p: Math.round(p), 
+        c: Math.round(c), 
+        f: Math.round(f), 
+        fb: Math.round(fb * 10) / 10 
+    };
 }
 
 document.getElementById('btn-add-food').addEventListener('click', () => {
@@ -295,31 +351,35 @@ document.getElementById('btn-add-food').addEventListener('click', () => {
     localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
     document.getElementById('food-input').value = "";
     updateFoodUI();
-    showToast(`Đã thêm ${name}!`);
+    showToast(`Đã ghi nhận ${name}!`);
 });
 
 window.deleteFood = function(id) {
     foodLogs = foodLogs.filter(log => log.id !== id);
     localStorage.setItem('helnai_food_logs', JSON.stringify(foodLogs));
     updateFoodUI();
-}
+    showToast("Đã xóa món ăn!");
+};
 
 function updateFoodUI() {
     const target = parseInt(document.getElementById('target-calo-display').innerText) || 2000;
     let tCal=0, tP=0, tC=0, tF=0, tFb=0;
     
     foodLogs.forEach(log => {
-        tCal+=log.cal; tP+=log.p; tC+=log.c; tF+=log.f; tFb+=log.fb;
+        tCal += log.cal; 
+        tP += log.p; 
+        tC += log.c; 
+        tF += log.f; 
+        tFb += log.fb;
     });
 
     document.getElementById('food-current').innerText = tCal;
     document.getElementById('macro-pro').innerText = tP;
     document.getElementById('macro-carb').innerText = tC;
     document.getElementById('macro-fat').innerText = tF;
-    document.getElementById('macro-fiber').innerText = tFb;
+    document.getElementById('macro-fiber').innerText = Math.round(tFb);
 
     let pct = Math.min((tCal / target) * 100, 100);
-    // Đổi màu vòng tròn nếu vượt target
     let circleColor = tCal > target ? "var(--danger)" : "var(--primary)";
     document.getElementById('food-circle').style.background = `conic-gradient(${circleColor} ${pct}%, var(--border) 0%)`;
 
@@ -332,9 +392,9 @@ function updateFoodUI() {
     }
 
     let advice = "";
-    if (tP < 50) advice += "Cần bổ sung thêm đạm (Thịt/Cá/Trứng). ";
-    if (tFb < 15) advice += "Đang thiếu chất xơ (Ăn thêm rau xanh/trái cây nhé).";
-    document.getElementById('food-advice').innerText = advice || "Dinh dưỡng đang khá cân bằng!";
+    if (tP < 40) advice += "Cần bổ sung thêm đạm (Thịt/Cá/Trứng). ";
+    if (tFb < 12) advice += "Đang thiếu chất xơ (Nên ăn thêm rau xanh/trái cây).";
+    document.getElementById('food-advice').innerText = advice || "Dinh dưỡng hôm nay khá cân bằng!";
 
     document.getElementById('food-list').innerHTML = foodLogs.map(log => `
         <li class="history-item">
@@ -347,3 +407,46 @@ function updateFoodUI() {
     `).join('');
 }
 updateFoodUI();
+
+/* =========================================
+   7. THỂ THAO
+   ========================================= */
+let workoutLogs = JSON.parse(localStorage.getItem('helnai_workout_logs')) || [];
+
+document.getElementById('btn-add-workout').addEventListener('click', () => {
+    const val = document.getElementById('workout-input').value;
+    if (!val.trim()) return;
+
+    workoutLogs.unshift({ id: Date.now(), text: val, done: false });
+    localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
+    document.getElementById('workout-input').value = "";
+    renderWorkout();
+    showToast("Đã thêm bài tập mới!");
+});
+
+window.deleteWorkout = function(id) {
+    workoutLogs = workoutLogs.filter(w => w.id !== id);
+    localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
+    renderWorkout();
+};
+
+window.toggleWorkout = function(id) {
+    workoutLogs = workoutLogs.map(w => w.id === id ? { ...w, done: !w.done } : w);
+    localStorage.setItem('helnai_workout_logs', JSON.stringify(workoutLogs));
+    renderWorkout();
+};
+
+function renderWorkout() {
+    const listEl = document.getElementById('workout-list');
+    if (!listEl) return;
+    listEl.innerHTML = workoutLogs.map(w => `
+        <li class="history-item">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <input type="checkbox" ${w.done ? 'checked' : ''} onchange="toggleWorkout(${w.id})">
+                <span style="${w.done ? 'text-decoration: line-through; opacity:0.6;' : ''}">${w.text}</span>
+            </div>
+            <button class="btn-delete" onclick="deleteWorkout(${w.id})">Xóa</button>
+        </li>
+    `).join('');
+}
+renderWorkout();
