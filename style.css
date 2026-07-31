@@ -26,11 +26,9 @@ body.dark-mode {
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Nunito', sans-serif; }
 body { background-color: var(--bg-color); color: var(--text-color); min-height: 100vh; transition: background 0.3s ease; }
 
-/* Dashboard & Glass */
 .dashboard-container { display: flex; min-height: 100vh; max-width: 1400px; margin: 0 auto; }
 .glass { background: var(--surface-color); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); backdrop-filter: blur(10px); }
 
-/* Sidebar */
 .sidebar { width: 260px; padding: 30px 20px; display: flex; flex-direction: column; justify-content: space-between; position: sticky; top: 0; height: 100vh; }
 .logo h2 { color: var(--primary); font-weight: 800; margin-bottom: 30px; }
 .nav-menu { display: flex; flex-direction: column; gap: 10px; }
@@ -39,15 +37,15 @@ body { background-color: var(--bg-color); color: var(--text-color); min-height: 
 .sidebar-bottom { display: flex; flex-direction: column; gap: 15px; }
 .theme-toggle { display: flex; justify-content: space-between; }
 
-/* Main Content */
 .main-content { flex: 1; padding: 40px; }
 .header-title { margin-bottom: 30px; }
 .header-title h1 { font-size: 28px; color: var(--text-color); }
-.tab-content { display: none; }
-.tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+
+/* TAB TOGGLE CRITICAL FIX */
+.tab-content { display: none !important; }
+.tab-content.active { display: block !important; animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Grid & Cards */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
 .stat-card { padding: 20px; display: flex; align-items: center; gap: 15px; }
 .stat-card .icon { font-size: 36px; color: var(--primary); background: var(--primary-light); padding: 12px; border-radius: 16px; }
@@ -57,13 +55,11 @@ body { background-color: var(--bg-color); color: var(--text-color); min-height: 
 .panel { padding: 25px; }
 .panel h3 { margin-bottom: 20px; color: var(--primary); }
 
-/* Forms & Inputs */
 .input-group { display: flex; flex-direction: column; gap: 6px; }
 .form-row { display: flex; gap: 10px; margin-bottom: 15px; }
 label { font-size: 14px; font-weight: 600; color: var(--text-sub); }
 input, select { padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-color); font-size: 15px; outline: none; }
 
-/* Buttons */
 button { cursor: pointer; border-radius: 12px; font-weight: 700; transition: 0.2s; border: none; }
 .btn-primary { background: var(--primary); color: white; padding: 12px 20px; }
 .btn-primary:hover { background: var(--primary-hover); }
@@ -72,30 +68,26 @@ button { cursor: pointer; border-radius: 12px; font-weight: 700; transition: 0.2
 .btn-delete:hover { background: var(--danger); color: white; }
 .icon-btn { background: transparent; color: var(--text-color); font-size: 22px; padding: 8px; }
 
-/* Progress Circles */
 .center-content { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .progress-circle { width: 180px; height: 180px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; transition: background 0.5s; }
 .progress-text { background: var(--surface-color); width: 150px; height: 150px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; }
 .water-input-area { display: flex; gap: 10px; width: 100%; align-items: flex-end; }
 
-/* Lists */
 .checklist, .history-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
 .checklist li, .history-item { background: var(--bg-color); padding: 12px 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; }
 .history-item-info { display: flex; flex-direction: column; gap: 4px; }
 .result-box { margin-top: 15px; padding: 15px; background: var(--primary-light); border-radius: 12px; font-size: 14px; }
 .suggestion, .note { font-size: 13px; color: var(--text-sub); }
 
-/* Streak Calendar */
 .streak-calendar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; }
 .streak-day { display: flex; flex-direction: column; align-items: center; background: var(--bg-color); padding: 8px; border-radius: 10px; min-width: 50px; }
 .streak-day span { font-size: 12px; color: var(--text-sub); }
 .streak-day .fire { font-size: 20px; margin-top: 4px; }
 
-/* Macro Stats */
 .macro-stats { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
 .macro { background: var(--primary-light); padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: bold; color: var(--primary); }
 
-/* Modal Fixes */
+/* MODAL FIX */
 .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 1000; }
 .modal.active { display: flex !important; }
 .modal-content { width: 90%; max-width: 550px; padding: 30px; border-radius: 24px; }
@@ -104,7 +96,6 @@ button { cursor: pointer; border-radius: 12px; font-weight: 700; transition: 0.2
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
 .full-width { grid-column: span 2; }
 
-/* Toast Notification */
 #toast-container { position: fixed; bottom: 30px; right: 30px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
 .toast { background: var(--primary); color: white; padding: 12px 24px; border-radius: 12px; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.2); animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards; }
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
