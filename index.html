@@ -58,11 +58,6 @@
                             <option value="gain">Tăng cân / Tăng cơ</option>
                         </select>
                     </div>
-                    <!-- THÊM TRƯỜNG GEMINI API KEY -->
-                    <div class="input-group full-width">
-                        <label>Gemini API Key (Tùy chọn):</label>
-                        <input type="password" id="api-key" placeholder="Nhập API Key của bạn để sử dụng AI ổn định">
-                    </div>
                 </div>
                 <button type="submit" class="btn-primary">Lưu & Bắt đầu</button>
             </form>
@@ -119,3 +114,174 @@
                         </div>
                     </div>
                     <div class="stat-card glass">
+                        <i class='bx bx-run icon'></i>
+                        <div>
+                            <h3>TDEE (Tối đa)</h3>
+                            <p id="stat-tdee" class="stat-value">-- kcal</p>
+                            <span class="stat-desc">Mức duy trì cân nặng</span>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <i class='bx bx-target-lock icon'></i>
+                        <div>
+                            <h3>Gợi ý Nạp Calo</h3>
+                            <p id="stat-target-calo" class="stat-value">-- kcal</p>
+                            <span id="stat-goal-desc" class="stat-desc">Khoảng nạp tối ưu</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 1. GIẤC NGỦ -->
+            <section id="sleep" class="tab-content">
+                <div class="header-title">
+                    <h1>Theo dõi Giấc ngủ 🌙</h1>
+                </div>
+                <div id="sleep-date-bar" class="date-selector-wrapper"></div>
+
+                <div class="content-grid">
+                    <div class="panel glass">
+                        <h3>Tính toán & Chu kỳ ngủ (90p)</h3>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Giờ đi ngủ:</label>
+                                <input type="time" id="sleep-time" value="23:00">
+                            </div>
+                            <div class="input-group">
+                                <label>Giờ thức dậy dự kiến:</label>
+                                <input type="time" id="wake-time" value="06:30">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Mục tiêu ngủ trước giờ (Streak):</label>
+                            <input type="time" id="streak-target-time" value="23:30">
+                        </div>
+                        <button type="button" onclick="calculateSleep()" class="btn-primary" style="margin-top: 15px;">Phân tích mệt mỏi & gợi ý</button>
+                        
+                        <div id="sleep-result" class="result-box"></div>
+                        <button type="button" id="btn-log-sleep" onclick="saveSleepLog()" class="btn-secondary" style="display:none; margin-top:10px; width:100%;">Lưu vào ngày đang chọn 📖</button>
+                    </div>
+
+                    <div class="panel glass">
+                        <h3>Nhật ký giấc ngủ ngày chọn 📅</h3>
+                        <div id="sleep-history" class="history-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. UỐNG NƯỚC -->
+            <section id="water" class="tab-content">
+                <div class="header-title">
+                    <h1>Mục tiêu Nước Uống 💧</h1>
+                </div>
+                <div id="water-date-bar" class="date-selector-wrapper"></div>
+
+                <div class="content-grid">
+                    <div class="panel glass center-content">
+                        <div class="progress-circle" id="water-circle">
+                            <div class="progress-text">
+                                <span id="water-current">0</span> / <span id="water-target">2000</span> ml
+                            </div>
+                        </div>
+                        <p id="water-streak-msg" class="streak-badge"></p>
+                        
+                        <div class="water-input-area">
+                            <div class="input-group" style="flex:1;">
+                                <select id="water-type">
+                                    <option value="Nước lọc">💧 Nước lọc</option>
+                                    <option value="Trà">🍵 Trà</option>
+                                    <option value="Cà phê">☕ Cà phê</option>
+                                    <option value="Nước ngọt">🥤 Nước ngọt</option>
+                                    <option value="Trà sữa">🧋 Trà sữa</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="flex:1;">
+                                <input type="number" id="water-custom-amount" placeholder="ml (VD: 250)">
+                            </div>
+                            <button type="button" onclick="addWater()" class="btn-primary">Uống!</button>
+                        </div>
+                        <p id="water-warning" class="warning-text" style="display:none; margin-top:10px; color: #ff6b6b; font-size:13px;"></p>
+                    </div>
+
+                    <div class="panel glass">
+                        <h3>Lịch sử uống ngày chọn</h3>
+                        <ul id="water-log-list" class="checklist"></ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. ĂN UỐNG -->
+            <section id="food" class="tab-content">
+                <div class="header-title">
+                    <h1>Nhật ký Ăn uống (Gemini AI) 🍏</h1>
+                </div>
+                <div id="food-date-bar" class="date-selector-wrapper"></div>
+
+                <div class="content-grid">
+                    <div class="panel glass center-content">
+                        <div class="progress-circle" id="food-circle">
+                            <div class="progress-text">
+                                <span id="food-current">0</span> / <span id="target-calo-display">2000</span> kcal
+                            </div>
+                        </div>
+                        <p id="food-streak-msg" class="streak-badge"></p>
+                        <p id="food-range-info" style="font-size: 13px; color: var(--text-sub); margin-bottom: 10px;"></p>
+                        
+                        <div class="macro-stats">
+                            <div class="macro">🥩 Đạm: <span id="macro-pro">0</span>g</div>
+                            <div class="macro">🍚 Tinh bột: <span id="macro-carb">0</span>g</div>
+                            <div class="macro">🥑 Béo: <span id="macro-fat">0</span>g</div>
+                            <div class="macro">🥬 Xơ: <span id="macro-fiber">0</span>g</div>
+                        </div>
+                        <p id="food-advice" class="suggestion" style="margin-top:15px;"></p>
+                    </div>
+
+                    <div class="panel glass">
+                        <div class="form-row">
+                            <input type="text" id="food-input" placeholder="Bạn vừa ăn gì? (VD: 1 tô phở bò, Matcha 700ml)" style="flex:1">
+                            <button type="button" onclick="addFood()" class="btn-primary">Nhập</button>
+                        </div>
+                        <p class="note" style="text-align:left;">*Hệ thống Gemini AI ước lượng calo tự động. Bấm vào món ăn để sửa calo thủ công.</p>
+                        <ul id="food-list" class="checklist" style="margin-top:15px;"></ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. THỂ THAO -->
+            <section id="workout" class="tab-content">
+                <div class="header-title">
+                    <h1>Nhật ký Tập luyện 🏃</h1>
+                </div>
+                <div id="workout-date-bar" class="date-selector-wrapper"></div>
+
+                <div class="panel glass" style="margin-bottom: 20px;">
+                    <div class="workout-mode-buttons">
+                        <button type="button" onclick="setWorkoutStatus('normal')" class="btn-secondary">🏋️ Ngày tập</button>
+                        <button type="button" onclick="setWorkoutStatus('off')" class="btn-secondary">🛌 Day Off</button>
+                        <button type="button" onclick="setWorkoutStatus('cheat')" class="btn-secondary">🍕 Cheat Day</button>
+                    </div>
+                    <p id="workout-status-msg" style="margin-top: 15px; font-weight: bold; color: var(--primary); text-align: center;"></p>
+                </div>
+
+                <div class="panel glass">
+                    <div class="form-row">
+                        <input type="text" id="workout-input" placeholder="Tên bài tập..." style="flex:2">
+                        <input type="number" id="workout-duration" placeholder="Phút" style="flex:1">
+                        <select id="workout-type" style="flex:1">
+                            <option value="Fullbody">🔥 Fullbody</option>
+                            <option value="Leg day">🦵 Leg day</option>
+                            <option value="Upper body">💪 Upper body</option>
+                            <option value="Cardio">🏃 Cardio</option>
+                            <option value="Khác">✨ Khác</option>
+                        </select>
+                        <button type="button" onclick="addWorkout()" class="btn-primary">Thêm</button>
+                    </div>
+                    <ul id="workout-list" class="checklist"></ul>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
