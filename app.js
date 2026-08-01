@@ -446,7 +446,10 @@ window.calculateSleep = function() {
         suggestedBedTimes.push(formatTime(suggestedDate));
     });
 
-    let isStreak = (sH < stH) || (sH === stH && sM <= stM);
+    // FIX LỖI STREAK QUY ĐỔI GIỜ 0H-12H SÁNG THÀNH 24H+ 
+    let sH_adj = sH < 12 ? sH + 24 : sH;
+    let stH_adj = stH < 12 ? stH + 24 : stH;
+    let isStreak = (sH_adj < stH_adj) || (sH_adj === stH_adj && sM <= stM);
 
     lastSleepResult = {
         id: Date.now(),
